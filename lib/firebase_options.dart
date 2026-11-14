@@ -21,10 +21,7 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return android;
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
@@ -75,11 +72,18 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions windows = FirebaseOptions(
     apiKey: 'AIzaSyDvTPGxkHzA0CGxjFaxOq4qLNvVtRj3oPw',
-    appId: '1:404973927098:web:d67724a2e462195a1f6083',
+    appId: '1:404973927098:web:650d193786aeecf31f6083',
     messagingSenderId: '404973927098',
     projectId: 'pharma-inc-d6c8d',
     authDomain: 'pharma-inc-d6c8d.firebaseapp.com',
     storageBucket: 'pharma-inc-d6c8d.firebasestorage.app',
-    measurementId: 'G-HB8JQ8XX2B',
+    measurementId: 'G-FWZKD2XFE5',
+  );
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyARTseAjdtf3Fsz8-fSB2AdhoOylF9y8Po',
+    appId: '1:404973927098:android:4ed5a81d53d671a71f6083',
+    messagingSenderId: '404973927098',
+    projectId: 'pharma-inc-d6c8d',
+    storageBucket: 'pharma-inc-d6c8d.firebasestorage.app',
   );
 }
