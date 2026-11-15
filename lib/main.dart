@@ -7,7 +7,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'auth_screen.dart';
-import 'level_selection.dart';
 import 'audio_manager.dart';
 import 'progress_manager.dart';
 import 'rules_screen.dart';
@@ -15,7 +14,6 @@ import 'profile_screen.dart';
 import 'gabinete_screen.dart';
 import 'escala_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dica_balcao_card.dart';
 import 'pratica_screen.dart';
 
 // Altura partilhada entre a cápsula de modos e a barra de navegação
@@ -91,7 +89,7 @@ class PharmaIncApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Pharma SOS', // Novo nome comunitário
+      title: 'Pharma SOS',
       theme: ThemeData(
         useMaterial3: true,
         // Aplica a cor escura de texto por defeito a todas as fontes Poppins
@@ -210,7 +208,6 @@ class _SplashScreenState extends State<SplashScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 boxShadow: [
-                  // Sombra subtil azulada para dar relevo ao logo
                   BoxShadow(
                     color: kProfiteclaBlue.withValues(alpha: 0.1),
                     blurRadius: 60,
@@ -249,7 +246,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
 
-    _animation = Tween<double>(begin: -6, end: 6).animate(
+    _animation = Tween<double>(begin: -10, end: 10).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
     );
   }
@@ -396,40 +393,37 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                               ],
                             ),
 
-                            const SizedBox(height: kEspacoVertical),
-
-                            const DicaBalcaoCard(),
+                            // EMPURRA MAIS A PARTIR DO TOPO PARA CENTRAR MELHOR O LOGO GRANDE
+                            const Spacer(flex: 3), 
 
                             // LOGO BALANÇANTE
-                            Expanded(
-                              child: Center(
-                                child: AnimatedBuilder(
-                                  animation: _animation,
-                                  builder: (context, child) {
-                                    return Transform.translate(
-                                      offset: Offset(0, _animation.value),
-                                      child: child,
-                                    );
-                                  },
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: kProfiteclaBlue.withValues(alpha: 0.05), 
-                                          blurRadius: 40, 
-                                          spreadRadius: 5
-                                        ),
-                                      ],
-                                    ),
-                                    child: Image.asset('assets/images/logo_splash.png', height: 210),
+                            Center(
+                              child: AnimatedBuilder(
+                                animation: _animation,
+                                builder: (context, child) {
+                                  return Transform.translate(
+                                    offset: Offset(0, _animation.value),
+                                    child: child,
+                                  );
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: kProfiteclaBlue.withValues(alpha: 0.05), 
+                                        blurRadius: 40, 
+                                        spreadRadius: 5
+                                      ),
+                                    ],
                                   ),
+                                  child: Image.asset('assets/images/logo_splash.png', height: 320),
                                 ),
                               ),
                             ),
 
-                            // ESPAÇAMENTO ENTRE O LOGO E O DOCK
-                            const SizedBox(height: 60),
+                            // ESPAÇO MENOR EM BAIXO (O Dock fica sempre encostado ao fundo)
+                            const Spacer(flex: 2),
 
                             // DOCK INFERIOR (Com o botão "Play" integrado)
                             Stack(
@@ -525,7 +519,6 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                 ),
                                 
                                 // O BOTÃO CENTRAL DE AÇÃO (FAB) FLUTUANTE
-                                // (Removemos o Positioned para a Stack o centrar automaticamente!)
                                 GestureDetector(
                                   onTap: () {
                                     Navigator.push(
@@ -534,7 +527,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                     );
                                   },
                                   child: Container(
-                                    width: 68, // Aumentei ligeiramente (de 65 para 68) para o destaque superior/inferior ser mais notório
+                                    width: 68,
                                     height: 68,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
@@ -557,7 +550,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                     ),
                                   ),
                                 ),
-                              ], // <-- Fecho da Stack
+                              ],
                             ),
                             
                             const SizedBox(height: 12),

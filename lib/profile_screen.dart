@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math' as math;
 import 'progress_manager.dart';
 import 'auth_screen.dart';
+import 'escala_screen.dart' show audienceLabel; 
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -21,31 +22,38 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   String _playerLicenseId = 'PI-0000';
   bool _isLoadingName = true;
 
-  // Cores da cápsula (guardadas no Firestore: users/{uid}.capsuleTop / capsuleBottom)
-  static const Color _defaultCapsuleTop = Color(0xFF9575CD);
-  static const Color _defaultCapsuleBottom = Color(0xFF512DA8);
+  // Cores Oficiais Light Mode
+  static const Color kProfiteclaBlue = Color(0xFF008AD8);
+  static const Color kTextDark = Color(0xFF333333);
+  static const Color kTextMuted = Color(0xFF757575);
+
+  // Cores da cápsula (agora com o Azul Profitecla como base)
+  static const Color _defaultCapsuleTop = kProfiteclaBlue;
+  static const Color _defaultCapsuleBottom = Color(0xFF005C9E); 
   Color _capsuleTop = _defaultCapsuleTop;
   Color _capsuleBottom = _defaultCapsuleBottom;
 
   static const List<Color> _capsulePalette = [
-    Color(0xFF9575CD), // lilás
-    Color(0xFF512DA8), // roxo escuro
-    Color(0xFF42A5F5), // azul claro
-    Color(0xFF1565C0), // azul
-    Color(0xFF00BCD4), // ciano
-    Color(0xFF0097A7), // ciano escuro
-    Color(0xFF26A69A), // turquesa
-    Color(0xFF00796B), // verde-água
-    Color(0xFF66BB6A), // verde
-    Color(0xFF388E3C), // verde escuro
-    Color(0xFFFFA726), // laranja
-    Color(0xFFEF6C00), // laranja escuro
-    Color(0xFFEF5350), // vermelho
-    Color(0xFFC62828), // vermelho escuro
-    Color(0xFFEC407A), // rosa
-    Color(0xFFAD1457), // magenta
-    Color(0xFF8D6E63), // castanho
-    Color(0xFF455A64), // cinza-azulado
+    kProfiteclaBlue,
+    Color(0xFF005C9E), 
+    Color(0xFF9575CD), 
+    Color(0xFF512DA8), 
+    Color(0xFF42A5F5), 
+    Color(0xFF1565C0), 
+    Color(0xFF00BCD4), 
+    Color(0xFF0097A7), 
+    Color(0xFF26A69A), 
+    Color(0xFF00796B), 
+    Color(0xFF66BB6A), 
+    Color(0xFF388E3C), 
+    Color(0xFFFFA726), 
+    Color(0xFFEF6C00), 
+    Color(0xFFEF5350), 
+    Color(0xFFC62828), 
+    Color(0xFFEC407A), 
+    Color(0xFFAD1457), 
+    Color(0xFF8D6E63), 
+    Color(0xFF455A64), 
   ];
 
   @override
@@ -63,7 +71,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        // Gera um número de cédula único e consistente baseado nos primeiros caracteres do UID
         final shortUid = user.uid.length >= 6 ? user.uid.substring(0, 6).toUpperCase() : '8492PI';
         
         final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
@@ -71,7 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           if (!mounted) return;
           final data = doc.data()!;
           setState(() {
-            _firestoreUserName = data['name'] ?? user.displayName ?? 'Farmacêutico';
+            _firestoreUserName = data['name'] ?? user.displayName ?? 'Aluno/a';
             _playerLicenseId = 'REG. Nº #$shortUid';
             _capsuleTop = _colorFromData(data['capsuleTop']) ?? _defaultCapsuleTop;
             _capsuleBottom = _colorFromData(data['capsuleBottom']) ?? _defaultCapsuleBottom;
@@ -87,7 +94,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     if (mounted) {
       final user = FirebaseAuth.instance.currentUser;
       setState(() {
-        _firestoreUserName = user?.displayName ?? 'Farmacêutico';
+        _firestoreUserName = user?.displayName ?? 'Aluno/a';
         _playerLicenseId = 'REG. Nº #PI-2027';
         _isLoadingName = false;
       });
@@ -100,7 +107,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   }
 
   Future<void> _saveCapsuleColors(Color top, Color bottom) async {
-    // Atualiza logo no ecrã e grava em segundo plano
     setState(() {
       _capsuleTop = top;
       _capsuleBottom = bottom;
@@ -146,14 +152,14 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           children: [
             Icon(Icons.warning_rounded, color: Colors.redAccent),
             SizedBox(width: 10),
-            Text('Fim de Turno', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF1E1B26), fontSize: 18)),
+            Text('Fim de Sessão', style: TextStyle(fontWeight: FontWeight.w900, color: kTextDark, fontSize: 18)),
           ],
         ),
-        content: const Text('Vais desvincular a tua Cédula Profissional. Confirmas?', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)),
+        content: const Text('Vais desvincular o teu perfil do sistema. Confirmas?', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black87)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('MANTER NO BALCÃO', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
+            child: const Text('MANTER SESSÃO', style: TextStyle(color: kTextMuted, fontWeight: FontWeight.bold, fontSize: 12)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -165,7 +171,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               Navigator.pop(context);
               _signOut(context);
             },
-            child: const Text('SAIR DO SISTEMA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
+            child: const Text('SAIR DA APP', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12)),
           ),
         ],
       ),
@@ -174,259 +180,146 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    const primary = Color(0xFF673AB7);
-
     final String displayName = _isLoadingName ? 'A carregar...' : _firestoreUserName;
     final String careerTitle = ProgressManager().careerTitle;
-    final String audienceName = ProgressManager().audienceName;
-
-    final int xp = ProgressManager().currentXP;
-    final int lvl = ProgressManager().currentLevel;
-    final int nextXp = ProgressManager().nextLevelXP;
-    final double progress = nextXp > 0 ? (xp / nextXp) : 0.0;
-    final int missingXp = nextXp > xp ? (nextXp - xp) : 0;
-
-    final String totalCuras = "0"; 
-    final String taxaPrecisao = "0%";
-    final String diasSeguidos = "0";
+    final String audienceName = ProgressManager().audienceName; 
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1B26), 
+      backgroundColor: Colors.white, 
       body: Stack(
         children: [
-          Positioned(top: -50, right: -50, child: _buildMolecule(primary.withValues(alpha: 0.15), 200)),
-          Positioned(bottom: 100, left: -80, child: _buildMolecule(const Color(0xFF2196F3).withValues(alpha: 0.1), 250)),
+          Positioned(top: -50, right: -50, child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.05), 200)),
+          Positioned(bottom: 100, left: -80, child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.08), 250)),
           
           SafeArea(
             child: Column(
               children: [
-                // CABEÇALHO
-Padding(
-  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-  child: Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween, // <--- Isto empurra os elementos para as pontas opostas
-    children: [
-      IconButton(
-        onPressed: () => Navigator.pop(context),
-        icon: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), shape: BoxShape.circle),
-          child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
-        ),
-      ),
-      IconButton(
-        onPressed: () => _showLogoutDialog(context),
-        icon: const Icon(Icons.power_settings_new_rounded, color: Colors.redAccent, size: 24),
-      ),
-    ],
-  ),
-),
+                // CABEÇALHO (Botão Voltar e Botão Sair)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: kProfiteclaBlue.withValues(alpha: 0.08), shape: BoxShape.circle),
+                          child: const Icon(Icons.arrow_back_rounded, color: kProfiteclaBlue, size: 20),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => _showLogoutDialog(context),
+                        icon: const Icon(Icons.power_settings_new_rounded, color: Colors.redAccent, size: 24),
+                      ),
+                    ],
+                  ),
+                ),
 
+                // CONTEÚDO CENTRADO VERTICALMENTE
                 Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: FadeTransition(
-                      opacity: _fadeAnim,
-                      child: SlideTransition(
-                        position: _slideAnim,
-                        child: Center(
+                  child: Center( // O Center empurra o SingleChildScrollView para o meio do ecrã
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: FadeTransition(
+                        opacity: _fadeAnim,
+                        child: SlideTransition(
+                          position: _slideAnim,
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 500),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
                               child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  // AVATAR CÁPSULA (toca para personalizar as cores)
+                                  // AVATAR CÁPSULA (Aumentámos o tamanho para dar mais destaque)
                                   GestureDetector(
                                     onTap: _isLoadingName ? null : () => _showCapsuleEditor(displayName),
                                     child: Stack(
                                       clipBehavior: Clip.none,
                                       children: [
                                         _buildCapsuleAvatar(
-                                          letter: displayName.isNotEmpty ? displayName[0].toUpperCase() : 'F',
+                                          letter: displayName.isNotEmpty ? displayName[0].toUpperCase() : 'A',
                                           top: _capsuleTop,
                                           bottom: _capsuleBottom,
+                                          width: 130,   // Mais largo
+                                          height: 180,  // Mais alto
+                                          fontSize: 64, // Letra maior
                                         ),
                                         Positioned(
                                           right: -4,
-                                          bottom: 8,
+                                          bottom: 12, // Subimos a paleta ligeiramente para acompanhar o novo tamanho
                                           child: Container(
-                                            padding: const EdgeInsets.all(8),
+                                            padding: const EdgeInsets.all(10), // Paleta ligeiramente maior
                                             decoration: BoxDecoration(
-                                              color: const Color(0xFF1E1B26),
+                                              color: Colors.white,
                                               shape: BoxShape.circle,
-                                              border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.6), width: 1.5),
+                                              border: Border.all(color: kProfiteclaBlue.withValues(alpha: 0.3), width: 1.5),
+                                              boxShadow: [
+                                                BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4),
+                                              ],
                                             ),
-                                            child: const Icon(Icons.palette_rounded, size: 16, color: Colors.cyanAccent),
+                                            child: const Icon(Icons.palette_rounded, size: 18, color: kProfiteclaBlue),
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
                                   
-                                  // NOME / NICKNAME
+                                  const SizedBox(height: 32), // Mais respiro antes do nome
+                                  
+                                  // NOME
                                   Text(
                                     displayName,
                                     textAlign: TextAlign.center,
-                                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.5),
+                                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: kTextDark, letterSpacing: -0.5),
                                   ),
-                                  const SizedBox(height: 6),
+                                  
+                                  const SizedBox(height: 12), // Mais respiro antes do registo
                                   
                                   // NÚMERO DE CÉDULA OFICIAL
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      const Icon(Icons.verified_rounded, size: 14, color: Colors.cyanAccent),
+                                      const Icon(Icons.verified_rounded, size: 16, color: kProfiteclaBlue),
                                       const SizedBox(width: 6),
                                       Text(
                                         _playerLicenseId,
-                                        style: TextStyle(
-                                          fontSize: 12,
+                                        style: const TextStyle(
+                                          fontSize: 13,
                                           fontWeight: FontWeight.w800,
-                                          color: Colors.cyanAccent.withValues(alpha: 0.9),
-                                          letterSpacing: 1.2,
+                                          color: kProfiteclaBlue,
+                                          letterSpacing: 1.5,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 16),
                                   
-                                  // TAG CARREIRA E PÚBLICO
+                                  const SizedBox(height: 36), // Distância generosa até à Tag final
+                                  
+                                  // TAG EXCLUSIVA DO CURSO COM ÍCONE DINÂMICO
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.3),
+                                      color: Colors.white,
                                       borderRadius: BorderRadius.circular(30),
-                                      border: Border.all(color: primary.withValues(alpha: 0.4)),
-                                      boxShadow: [BoxShadow(color: primary.withValues(alpha: 0.1), blurRadius: 10)],
+                                      border: Border.all(color: const Color(0xFFE0E0E0)),
+                                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 6))],
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.military_tech_rounded, size: 16, color: Colors.amber.shade400),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          careerTitle.toUpperCase(),
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
-                                        ),
-                                        Container(
-                                          margin: const EdgeInsets.symmetric(horizontal: 12),
-                                          width: 4, height: 4,
-                                          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.3), shape: BoxShape.circle),
-                                        ),
-                                        Icon(Icons.group_rounded, size: 16, color: Colors.cyanAccent.shade400),
-                                        const SizedBox(width: 6),
+                                        Icon(_getIconForAudience(audienceName), size: 18, color: kProfiteclaBlue),
+                                        const SizedBox(width: 8),
                                         Text(
                                           audienceName.toUpperCase(),
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 40),
-
-                                  // BARRA DE XP
-                                  Container(
-                                    padding: const EdgeInsets.all(24),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.03),
-                                      borderRadius: BorderRadius.circular(30),
-                                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                const Icon(Icons.medication_liquid_rounded, color: Colors.amberAccent, size: 20), // Ícone farmacêutico!
-                                                const SizedBox(width: 8),
-                                                Text('NÍVEL $lvl', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
-                                              ],
-                                            ),
-                                            Text('$xp / $nextXp mg', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Colors.cyanAccent)),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 20),
-                                        
-                                        Container(
-                                          height: 22,
-                                          width: double.infinity,
-                                          padding: const EdgeInsets.all(2),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black54,
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(color: Colors.white24, width: 1.5),
-                                          ),
-                                          child: Stack(
-                                            children: [
-                                              FractionallySizedBox(
-                                                alignment: Alignment.centerLeft,
-                                                widthFactor: progress.clamp(0.0, 1.0),
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    borderRadius: BorderRadius.circular(8),
-                                                    gradient: const LinearGradient(colors: [Color(0xFF00E5FF), Color(0xFF651FFF)]),
-                                                    boxShadow: [
-                                                      BoxShadow(color: const Color(0xFF00E5FF).withValues(alpha: 0.6), blurRadius: 10),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'Faltam $missingXp mg de Princípio Ativo para a próxima evolução.', 
-                                          textAlign: TextAlign.center,
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white54, letterSpacing: 0.5),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 32),
-
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                    children: [
-                                      _buildCapsuleStat(icon: Icons.science_rounded, value: totalCuras, label: 'Curas', color: Colors.cyanAccent),
-                                      _buildCapsuleStat(icon: Icons.radar_rounded, value: taxaPrecisao, label: 'Precisão', color: Colors.amberAccent),
-                                      _buildCapsuleStat(icon: Icons.local_fire_department_rounded, value: diasSeguidos, label: 'Dias', color: Colors.deepOrangeAccent),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 40),
-
-                                  const Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Text('MOLÉCULAS DESBLOQUEADAS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2.0, color: Colors.white54)),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(28),
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.02),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
-                                    ),
-                                    child: const Column(
-                                      children: [
-                                        Icon(Icons.biotech_rounded, color: Colors.white24, size: 36),
-                                        SizedBox(height: 12),
-                                        Text(
-                                          'Ainda não sintetizaste nenhuma molécula rara.',
-                                          style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.w600),
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: kTextDark, letterSpacing: 0.5),
                                         ),
                                       ],
                                     ),
                                   ),
                                   
-                                  const SizedBox(height: 60),
+                                  const SizedBox(height: 20), // Pequena margem de segurança no fundo
                                 ],
                               ),
                             ),
@@ -461,21 +354,21 @@ Padding(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            top,    // Metade superior
-            bottom, // Metade inferior
+            top,    
+            bottom, 
           ],
-          stops: const [0.5, 0.5], // Cria o corte seco bicolor da cápsula
+          stops: const [0.5, 0.5], 
         ),
         boxShadow: [
           BoxShadow(
-            color: bottom.withValues(alpha: 0.5),
-            blurRadius: 30,
+            color: bottom.withValues(alpha: 0.3), // Sombra ligeiramente mais suave
+            blurRadius: 25,
             offset: const Offset(0, 10),
           ),
         ],
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.3), // simula o brilho do plástico
-          width: 3,
+          color: Colors.white.withValues(alpha: 0.8), // Brilho mais visível
+          width: 3.5,
         ),
       ),
       child: Center(
@@ -487,8 +380,8 @@ Padding(
             color: Colors.white,
             shadows: const [
               Shadow(
-                color: Colors.black45, // Garante que a letra se lê por cima da linha de corte
-                blurRadius: 6,
+                color: Colors.black45,
+                blurRadius: 4,
                 offset: Offset(0, 2),
               ),
             ],
@@ -504,7 +397,7 @@ Padding(
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2.0, color: Colors.white54),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2.0, color: kTextMuted),
         ),
         const SizedBox(height: 10),
         Wrap(
@@ -522,9 +415,13 @@ Padding(
                   color: c,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: isSelected ? Colors.white : Colors.white24,
-                    width: isSelected ? 3 : 1,
+                    color: isSelected ? kTextDark : Colors.transparent,
+                    width: isSelected ? 3 : 0,
                   ),
+                  boxShadow: [
+                    if (!isSelected)
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))
+                  ],
                 ),
                 child: isSelected ? const Icon(Icons.check_rounded, size: 18, color: Colors.white) : null,
               ),
@@ -536,14 +433,14 @@ Padding(
   }
 
   void _showCapsuleEditor(String displayName) {
-    final String letter = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'F';
+    final String letter = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'A';
     Color tempTop = _capsuleTop;
     Color tempBottom = _capsuleBottom;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF2A2635),
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (sheetContext) {
         return StatefulBuilder(
@@ -559,14 +456,14 @@ Padding(
                       child: Container(
                         width: 40,
                         height: 4,
-                        decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
+                        decoration: BoxDecoration(color: const Color(0xFFE0E0E0), borderRadius: BorderRadius.circular(2)),
                       ),
                     ),
                     const SizedBox(height: 16),
                     const Center(
                       child: Text(
                         'PERSONALIZAR CÁPSULA',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 2.0, color: Colors.white),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 2.0, color: kTextDark),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -590,8 +487,8 @@ Padding(
                         Expanded(
                           child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.cyanAccent,
-                              side: BorderSide(color: Colors.cyanAccent.withValues(alpha: 0.5)),
+                              foregroundColor: kProfiteclaBlue,
+                              side: BorderSide(color: kProfiteclaBlue.withValues(alpha: 0.5)),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                             ),
@@ -616,7 +513,7 @@ Padding(
                         Expanded(
                           child: ElevatedButton(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF673AB7),
+                              backgroundColor: kProfiteclaBlue,
                               foregroundColor: Colors.white,
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -641,6 +538,21 @@ Padding(
     );
   }
 
+IconData _getIconForAudience(String audience) {
+    if (audience == 'Gestão e Administração') return Icons.business_center_rounded;
+    if (audience == 'Desenvolvimento de Software') return Icons.computer_rounded;
+    if (audience == 'Comunicação e Marketing') return Icons.campaign_rounded;
+    if (audience == 'Multimédia') return Icons.movie_creation_rounded;
+    if (audience == 'Cozinha e Restauração') return Icons.restaurant_rounded;
+    if (audience == 'Turismo') return Icons.flight_takeoff_rounded;
+    if (audience == 'Auxiliar de Saúde') return Icons.health_and_safety_rounded;
+    if (audience == 'Auxiliar de Farmácia') return Icons.medical_information_rounded;
+    if (audience == 'Secretariado Executivo') return Icons.assignment_ind_rounded;
+    if (audience == 'Comunicação e Serviço Digital') return Icons.devices_rounded;
+    if (audience == 'Professores') return Icons.school_rounded;
+    return Icons.group_rounded; // Default
+  }
+
   Widget _buildMolecule(Color color, double size) {
     return Transform.rotate(
       angle: math.pi / 4,
@@ -657,28 +569,6 @@ Padding(
             decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: color, width: 4)),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCapsuleStat({required IconData icon, required String value, required String label, required Color color}) {
-    return Container(
-      width: 90,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(50), 
-        border: Border.all(color: color.withValues(alpha: 0.25), width: 2),
-        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.05), blurRadius: 20)],
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 16),
-          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white70, letterSpacing: 1.0)),
-        ],
       ),
     );
   }

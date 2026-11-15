@@ -13,6 +13,11 @@ class _RulesScreenState extends State<RulesScreen> with SingleTickerProviderStat
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
 
+  // Cores Oficiais Light Mode
+  static const Color kProfiteclaBlue = Color(0xFF008AD8);
+  static const Color kTextDark = Color(0xFF333333);
+  static const Color kTextMuted = Color(0xFF757575);
+
   @override
   void initState() {
     super.initState();
@@ -30,16 +35,13 @@ class _RulesScreenState extends State<RulesScreen> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    const primary = Color(0xFF673AB7);
-    const accentCyan = Color(0xFF00E5FF);
-
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1B26), // Fundo escuro coeso com a Cédula
+      backgroundColor: Colors.white, // Fundo claro coeso
       body: Stack(
         children: [
-          // Elementos moleculares de fundo subtis
-          Positioned(top: -60, left: -60, child: _buildMolecule(primary.withValues(alpha: 0.12), 220)),
-          Positioned(bottom: 50, right: -70, child: _buildMolecule(accentCyan.withValues(alpha: 0.08), 260)),
+          // Elementos moleculares de fundo em Azul Profitecla (muito subtis)
+          Positioned(top: -60, left: -60, child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.05), 220)),
+          Positioned(bottom: 50, right: -70, child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.08), 260)),
 
           SafeArea(
             child: Column(
@@ -55,11 +57,11 @@ class _RulesScreenState extends State<RulesScreen> with SingleTickerProviderStat
                         child: Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
+                            color: kProfiteclaBlue.withValues(alpha: 0.08),
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white12),
+                            border: Border.all(color: kProfiteclaBlue.withValues(alpha: 0.15)),
                           ),
-                          child: const Icon(Icons.arrow_back_rounded, color: Colors.white70, size: 20),
+                          child: const Icon(Icons.arrow_back_rounded, color: kProfiteclaBlue, size: 20),
                         ),
                       ),
                       const SizedBox(width: 42), // Espaçador para centrar o título
@@ -84,84 +86,84 @@ class _RulesScreenState extends State<RulesScreen> with SingleTickerProviderStat
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
-                                    'Bem-vindo à\nPharma Inc.',
+                                    'Bula da\nComunidade',
                                     style: TextStyle(
                                       fontSize: 32,
                                       fontWeight: FontWeight.w900,
-                                      color: Colors.white,
+                                      color: kTextDark,
                                       letterSpacing: -0.8,
                                       height: 1.2,
                                     ),
                                   ),
                                   const SizedBox(height: 12),
                                   const Text(
-                                    'Antes de iniciares o teu turno ao balcão, lê atentamente os procedimentos da farmácia.',
+                                    'Prepara-te para explorar a Profitecla. Lê atentamente como funcionam os desafios interativos.',
                                     style: TextStyle(
                                       fontSize: 15,
-                                      color: Colors.white60,
+                                      color: kTextMuted,
                                       height: 1.4,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                   const SizedBox(height: 40),
 
-                                  // Regra 1
+                                  // Regra 1 - Scanner
                                   _buildProtocolCard(
                                     index: '01',
-                                    title: '1. Avaliação Clínica',
-                                    description: 'Em cada atendimento, irás ler o perfil do utente e os seus sintomas. Analisa bem antes de tomares uma decisão.',
-                                    icon: Icons.monitor_heart_rounded,
-                                    accentColor: accentCyan,
+                                    title: '1. O Leitor de QR Codes',
+                                    description: 'Usa o grande botão azul no menu principal para leres os códigos QR disponibilizados.',
+                                    icon: Icons.qr_code_scanner_rounded,
+                                    accentColor: kProfiteclaBlue,
                                   ),
                                   const SizedBox(height: 20),
 
-                                  // Regra 2
+                                  // Regra 2 - Cartões
                                   _buildProtocolCard(
                                     index: '02',
-                                    title: '2. Níveis e Dosagem',
-                                    description: 'As caixas na seleção de níveis representam diferentes dificuldades (de 100mg a 500mg). Diferentes cores representam diferentes públicos-alvo.',
-                                    icon: Icons.medication_rounded,
-                                    accentColor: Colors.greenAccent,
+                                    title: '2. Desafios Práticos',
+                                    description: 'Cada leitura revela um caso clínico ou desafio adaptado aos vários cursos. Analisa bem a situação antes de escolheres a resposta.',
+                                    icon: Icons.style_rounded,
+                                    accentColor: const Color(0xFF00A86B), // Verde Esmeralda
                                   ),
                                   const SizedBox(height: 20),
 
-                                  // Regra 3
+                                  // Regra 3 - Progressão (Removidos os cargos, regresso aos Miligramas - mg)
                                   _buildProtocolCard(
                                     index: '03',
-                                    title: '3. Progressão de Carreira',
-                                    description: 'Diagnósticos corretos dão-te Miligramas de Princípio Ativo (mg). Acumula mg para subires de escalão no teu Perfil Clínico.',
-                                    icon: Icons.science_rounded, // Ícone atualizado para tema científico
-                                    accentColor: Colors.amberAccent,
+                                    title: '3. Princípio Ativo (mg)',
+                                    description: 'Respostas corretas dão-te Miligramas (mg) de Princípio Ativo. Acumula mg para dominares a Escala geral.',
+                                    icon: Icons.science_rounded,
+                                    accentColor: const Color(0xFFFF9800), // Laranja
                                   ),
                                   const SizedBox(height: 20),
 
-                                  // Regra 4
+                                  // Regra 4 - Feedback
                                   _buildProtocolCard(
                                     index: '04',
-                                    title: '4. Feedback Pedagógico',
-                                    description: 'Quer acertes ou erres, receberás sempre a justificação técnica. O objetivo principal é a tua aprendizagem contínua.',
-                                    icon: Icons.assignment_late_rounded,
-                                    accentColor: Colors.purpleAccent,
+                                    title: '4. Aprendizagem Contínua',
+                                    description: 'Quer acertes ou erres, receberás sempre a justificação técnica. O objetivo principal é testares os teus conhecimentos na prática.',
+                                    icon: Icons.school_rounded,
+                                    accentColor: const Color(0xFF9C27B0), // Roxo
                                   ),
                                   const SizedBox(height: 48),
 
-                                  // Botão de fechar/entender (Estilo Néon)
+                                  // Botão de fechar/entender (Light Mode)
                                   SizedBox(
                                     width: double.infinity,
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
                                         padding: const EdgeInsets.symmetric(vertical: 18),
-                                        backgroundColor: primary,
+                                        backgroundColor: kProfiteclaBlue,
                                         foregroundColor: Colors.white,
-                                        elevation: 10,
-                                        shadowColor: primary.withValues(alpha: 0.5),
+                                        elevation: 8,
+                                        shadowColor: kProfiteclaBlue.withValues(alpha: 0.4),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(30),
-                                          side: BorderSide(color: Colors.white.withValues(alpha: 0.2), width: 1.5),
                                         ),
                                       ),
                                       onPressed: () => Navigator.pop(context),
                                       child: const Text(
-                                        'LI E COMPREENDI AS REGRAS',
+                                        'LI E COMPREENDI A BULA',
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w900,
@@ -218,13 +220,13 @@ class _RulesScreenState extends State<RulesScreen> with SingleTickerProviderStat
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1.5),
+        border: Border.all(color: const Color(0xFFE0E0E0), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: accentColor.withValues(alpha: 0.05),
-            blurRadius: 20,
+            color: accentColor.withValues(alpha: 0.08),
+            blurRadius: 15,
             offset: const Offset(0, 8),
           ),
         ],
@@ -235,9 +237,9 @@ class _RulesScreenState extends State<RulesScreen> with SingleTickerProviderStat
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: 0.15),
+              color: accentColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+              border: Border.all(color: accentColor.withValues(alpha: 0.2)),
             ),
             child: Icon(icon, color: accentColor, size: 26),
           ),
@@ -246,25 +248,21 @@ class _RulesScreenState extends State<RulesScreen> with SingleTickerProviderStat
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: kTextDark,
+                  ),
                 ),
+                const SizedBox(height: 6),
                 Text(
                   description,
                   style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white60,
+                    fontWeight: FontWeight.w600,
+                    color: kTextMuted,
                     height: 1.4,
                   ),
                 ),

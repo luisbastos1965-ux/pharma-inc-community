@@ -4,19 +4,30 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math' as math;
 import 'progress_manager.dart';
 
-/// Mapa central dos públicos (o número é o que fica guardado na base de dados).
+// Cores Oficiais Light Mode
+const Color kProfiteclaBlue = Color(0xFF008AD8);
+const Color kTextDark = Color(0xFF333333);
+const Color kTextMuted = Color(0xFF757575);
+
+/// Mapa central dos públicos/cursos (o número é o que fica guardado na base de dados).
 const Map<int, String> kAudienceNames = {
-  1: 'Juniores',
-  2: 'Seniores (Comunidade)',
-  3: 'Técnicos Auxiliares de Farmácia',
-  4: 'Estudantes Universitários de Farmácia',
-  5: 'Farmacêuticos',
+  1: 'Gestão e Administração',
+  2: 'Desenvolvimento de Software',
+  3: 'Comunicação e Marketing',
+  4: 'Multimédia',
+  5: 'Cozinha e Restauração',
+  6: 'Turismo',
+  7: 'Auxiliar de Saúde',
+  8: 'Auxiliar de Farmácia',
+  9: 'Secretariado Executivo',
+  10: 'Comunicação e Serviço Digital',
+  11: 'Professores',
 };
 
-/// Converte o valor de `audience` (int ou String) no nome do público.
+/// Converte o valor de `audience` (int ou String) no nome do curso.
 String audienceLabel(dynamic raw) {
   final id = raw is int ? raw : int.tryParse(raw?.toString() ?? '');
-  return kAudienceNames[id] ?? 'Sem público';
+  return kAudienceNames[id] ?? 'Sem Curso';
 }
 
 class EscalaScreen extends StatefulWidget {
@@ -57,37 +68,40 @@ class _EscalaScreenState extends State<EscalaScreen>
 
   IconData _iconForCategory(String cat) {
     if (cat == 'Global') return Icons.public_rounded;
-    if (cat == 'Juniores') return Icons.sports_esports_rounded;
-    if (cat == 'Seniores (Comunidade)') return Icons.elderly_rounded;
-    if (cat == 'Técnicos Auxiliares de Farmácia') return Icons.medical_information_rounded;
-    if (cat == 'Estudantes Universitários de Farmácia') return Icons.school_rounded;
-    if (cat == 'Farmacêuticos') return Icons.local_pharmacy_rounded;
+    if (cat == 'Gestão e Administração') return Icons.business_center_rounded;
+    if (cat == 'Desenvolvimento de Software') return Icons.computer_rounded;
+    if (cat == 'Comunicação e Marketing') return Icons.campaign_rounded;
+    if (cat == 'Multimédia') return Icons.movie_creation_rounded;
+    if (cat == 'Cozinha e Restauração') return Icons.restaurant_rounded;
+    if (cat == 'Turismo') return Icons.flight_takeoff_rounded;
+    if (cat == 'Auxiliar de Saúde') return Icons.health_and_safety_rounded;
+    if (cat == 'Auxiliar de Farmácia') return Icons.medical_information_rounded;
+    if (cat == 'Secretariado Executivo') return Icons.assignment_ind_rounded;
+    if (cat == 'Comunicação e Serviço Digital') return Icons.devices_rounded;
+    if (cat == 'Professores') return Icons.school_rounded;
     return Icons.group_rounded;
   }
 
   Widget _buildFilterButton() {
-    const primary = Color(0xFF673AB7);
-    const accentCyan = Color(0xFF00E5FF);
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: primary.withValues(alpha: 0.15),
+        color: kProfiteclaBlue.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: accentCyan.withValues(alpha: 0.5), width: 1.5),
+        border: Border.all(color: kProfiteclaBlue.withValues(alpha: 0.2), width: 1.5),
         boxShadow: [
-          BoxShadow(color: accentCyan.withValues(alpha: 0.1), blurRadius: 8),
+          BoxShadow(color: kProfiteclaBlue.withValues(alpha: 0.05), blurRadius: 8),
         ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.filter_alt_rounded, color: accentCyan, size: 16),
+          const Icon(Icons.filter_alt_rounded, color: kProfiteclaBlue, size: 16),
           const SizedBox(width: 6),
           Text(
             _selectedCategory == 'Global' ? 'FILTRAR' : 'FILTRADO',
             style: const TextStyle(
-              color: accentCyan,
+              color: kProfiteclaBlue,
               fontWeight: FontWeight.w900,
               fontSize: 11,
               letterSpacing: 0.5,
@@ -98,15 +112,10 @@ class _EscalaScreenState extends State<EscalaScreen>
     );
   }
 
-  /// Cascata de filtros: os ícones (em círculos) descem por baixo do botão,
-  /// alinhados à direita com o fim do botão, e o nome da categoria aparece à esquerda.
   void _showFilterCascade(BuildContext context) {
     final RenderBox? box = _filterButtonKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
 
-    const primary = Color(0xFF673AB7);
-    const accentCyan = Color(0xFF00E5FF);
-    const Color surface = Color(0xFF2A2635);
     const double circleSize = 48;
 
     final Offset origin = box.localToGlobal(Offset.zero);
@@ -119,7 +128,7 @@ class _EscalaScreenState extends State<EscalaScreen>
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Fechar filtro',
-      barrierColor: Colors.black.withValues(alpha: 0.6),
+      barrierColor: Colors.black.withValues(alpha: 0.3), // Fundo escurecido mais leve no light mode
       transitionDuration: const Duration(milliseconds: 450),
       pageBuilder: (dialogContext, animation, secondaryAnimation) {
         return Material(
@@ -131,8 +140,8 @@ class _EscalaScreenState extends State<EscalaScreen>
                 final String category = _categories[i];
                 final bool isSelected = _selectedCategory == category;
 
-                // Cada item arranca um pouco depois do anterior (efeito cascata)
-                final double start = i * 0.08;
+                // O Interval exige end <= 1.0, por isso o atraso é distribuído pelas categorias
+                final double start = i * (0.5 / _categories.length);
                 final double t = Interval(start, start + 0.5, curve: Curves.easeOutBack)
                     .transform(animation.value);
 
@@ -157,20 +166,27 @@ class _EscalaScreenState extends State<EscalaScreen>
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                                   decoration: BoxDecoration(
-                                    color: isSelected ? primary.withValues(alpha: 0.35) : surface,
+                                    color: isSelected ? kProfiteclaBlue : Colors.white,
                                     borderRadius: BorderRadius.circular(20),
                                     border: Border.all(
-                                      color: isSelected ? accentCyan : Colors.white12,
-                                      width: isSelected ? 1.5 : 1,
+                                      color: isSelected ? kProfiteclaBlue : const Color(0xFFE0E0E0),
+                                      width: 1.5,
                                     ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 4),
+                                      )
+                                    ],
                                   ),
                                   child: Text(
                                     category,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color: isSelected ? Colors.white : Colors.white70,
-                                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                      color: isSelected ? Colors.white : kTextDark,
+                                      fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -182,24 +198,25 @@ class _EscalaScreenState extends State<EscalaScreen>
                                 height: circleSize,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: isSelected ? primary : surface,
+                                  color: isSelected ? kProfiteclaBlue : Colors.white,
                                   border: Border.all(
-                                    color: isSelected ? accentCyan : Colors.white24,
-                                    width: isSelected ? 2 : 1.5,
+                                    color: isSelected ? kProfiteclaBlue : const Color(0xFFE0E0E0),
+                                    width: 1.5,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
                                       color: isSelected
-                                          ? accentCyan.withValues(alpha: 0.25)
-                                          : Colors.black.withValues(alpha: 0.3),
-                                      blurRadius: 12,
+                                          ? kProfiteclaBlue.withValues(alpha: 0.3)
+                                          : Colors.black.withValues(alpha: 0.05),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
                                     ),
                                   ],
                                 ),
                                 child: Icon(
                                   _iconForCategory(category),
                                   size: 22,
-                                  color: isSelected ? accentCyan : Colors.white70,
+                                  color: isSelected ? Colors.white : kTextMuted,
                                 ),
                               ),
                             ],
@@ -213,7 +230,6 @@ class _EscalaScreenState extends State<EscalaScreen>
 
               return Stack(
                 children: [
-                  // Réplica do botão por cima do fundo escurecido (toca para fechar)
                   Positioned(
                     left: origin.dx,
                     top: origin.dy,
@@ -253,26 +269,23 @@ class _EscalaScreenState extends State<EscalaScreen>
 
   @override
   Widget build(BuildContext context) {
-    const primary = Color(0xFF673AB7);
-    const accentCyan = Color(0xFF00E5FF);
-
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
     final int userXP = ProgressManager().currentXP;
-    const String userRole = 'Sem público';
+    const String userRole = 'Sem Curso';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1B26),
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
           Positioned(
             top: -60,
             right: -60,
-            child: _buildMolecule(primary.withValues(alpha: 0.12), 220),
+            child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.05), 220),
           ),
           Positioned(
             bottom: 50,
             left: -70,
-            child: _buildMolecule(accentCyan.withValues(alpha: 0.08), 260),
+            child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.08), 260),
           ),
 
           SafeArea(
@@ -291,12 +304,13 @@ class _EscalaScreenState extends State<EscalaScreen>
                         icon: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.1),
+                            color: kProfiteclaBlue.withValues(alpha: 0.08),
                             shape: BoxShape.circle,
+                            border: Border.all(color: kProfiteclaBlue.withValues(alpha: 0.15)),
                           ),
                           child: const Icon(
                             Icons.arrow_back_rounded,
-                            color: Colors.white,
+                            color: kProfiteclaBlue,
                             size: 20,
                           ),
                         ),
@@ -312,15 +326,14 @@ class _EscalaScreenState extends State<EscalaScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'Top Farmacêuticos',
+                        'Ranking Profitecla',
                         style: TextStyle(
-                          fontSize: 24, // Ligeiramente mais pequeno para encaixar o botão
+                          fontSize: 24,
                           fontWeight: FontWeight.w900,
-                          color: Colors.white,
+                          color: kTextDark,
                           letterSpacing: -0.5,
                         ),
                       ),
-                      // BOTÃO DE FILTRO (abre a cascata)
                       GestureDetector(
                         key: _filterButtonKey,
                         onTap: () => _showFilterCascade(context),
@@ -330,18 +343,17 @@ class _EscalaScreenState extends State<EscalaScreen>
                   ),
                 ),
 
-                // Etiqueta visual para quando há um filtro ativo
                 if (_selectedCategory != 'Global')
                   Padding(
                     padding: const EdgeInsets.only(left: 24.0, top: 12.0, bottom: 4.0),
                     child: Row(
                       children: [
-                        const Icon(Icons.subdirectory_arrow_right_rounded, color: Colors.white54, size: 14),
+                        const Icon(Icons.subdirectory_arrow_right_rounded, color: kTextMuted, size: 14),
                         const SizedBox(width: 8),
                         Text(
                           _selectedCategory.toUpperCase(),
                           style: const TextStyle(
-                            color: Colors.white54,
+                            color: kTextMuted,
                             fontSize: 10,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 1.5,
@@ -361,7 +373,7 @@ class _EscalaScreenState extends State<EscalaScreen>
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Center(
-                          child: CircularProgressIndicator(color: accentCyan),
+                          child: CircularProgressIndicator(color: kProfiteclaBlue),
                         );
                       }
 
@@ -369,7 +381,7 @@ class _EscalaScreenState extends State<EscalaScreen>
                         return Center(
                           child: Text(
                             'Erro ao carregar escala: ${snapshot.error}',
-                            style: const TextStyle(color: Colors.white54),
+                            style: const TextStyle(color: kTextMuted),
                           ),
                         );
                       }
@@ -384,24 +396,21 @@ class _EscalaScreenState extends State<EscalaScreen>
                           } catch (_) {}
 
                           String docId = doc.id;
-                          String name =
-                              data['name']?.toString() ?? 'Farmacêutico';
+                          String name = data['name']?.toString() ?? 'Aluno/a';
 
                           int xp = 0;
                           var rawXp = data['xp'];
                           if (rawXp is int) {
                             xp = rawXp;
                           } else if (rawXp != null) {
-                            xp =
-                                int.tryParse(rawXp.toString()) ??
-                                (docId == currentUserId ? userXP : 0);
+                            xp = int.tryParse(rawXp.toString()) ?? (docId == currentUserId ? userXP : 0);
                           } else if (docId == currentUserId) {
                             xp = userXP;
                           }
 
                           String role = data['audience'] != null
                               ? audienceLabel(data['audience'])
-                              : (data['role']?.toString() ?? 'Sem público');
+                              : (data['role']?.toString() ?? 'Sem Curso');
 
                           list.add({
                             'uid': docId,
@@ -426,7 +435,7 @@ class _EscalaScreenState extends State<EscalaScreen>
                       if (!hasUser) {
                         list.add({
                           'uid': currentUserId ?? 'local_user',
-                          'name': 'Estagiário (Tu)',
+                          'name': 'Aluno/a (Tu)',
                           'xp': userXP,
                           'role': userRole,
                           'isUser': true,
@@ -453,9 +462,9 @@ class _EscalaScreenState extends State<EscalaScreen>
                       if (filtered.isEmpty) {
                         return const Center(
                           child: Text(
-                            'Nenhum registo encontrado nesta categoria.',
+                            'Ainda não há pontuações nesta categoria.',
                             style: TextStyle(
-                              color: Colors.white54,
+                              color: kTextMuted,
                               fontSize: 13,
                             ),
                           ),
@@ -492,16 +501,17 @@ class _EscalaScreenState extends State<EscalaScreen>
                   ),
                 ),
 
+                // BARRA INFERIOR (A TUA POSIÇÃO)
                 Container(
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.4),
+                    color: Colors.white,
                     border: const Border(
-                      top: BorderSide(color: Colors.white12),
+                      top: BorderSide(color: Color(0xFFE0E0E0)),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 20,
                         offset: const Offset(0, -5),
                       ),
@@ -511,11 +521,11 @@ class _EscalaScreenState extends State<EscalaScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'A TUA POSIÇÃO NA ESCALA',
+                        'A TUA POSIÇÃO NO RANKING',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w900,
-                          color: accentCyan,
+                          color: kProfiteclaBlue,
                           letterSpacing: 1.5,
                         ),
                       ),
@@ -571,9 +581,9 @@ class _EscalaScreenState extends State<EscalaScreen>
                                     .snapshots()
                                 : null,
                             builder: (context, userDocSnapshot) {
-                              String dynamicName = 'Estagiário';
+                              String dynamicName = 'Aluno/a';
                               String dynamicRole = userRole;
-                              Map<String, dynamic>? userData; // A VARIÁVEL É DECLARADA AQUI FORA!
+                              Map<String, dynamic>? userData;
 
                               if (userDocSnapshot.hasData &&
                                   userDocSnapshot.data != null &&
@@ -651,36 +661,36 @@ class _EscalaScreenState extends State<EscalaScreen>
     int? capsuleBottom,
   }) {
     Color getRankColor(int r) {
-      if (r == 1) return const Color(0xFFFFD700);
-      if (r == 2) return const Color(0xFFC0C0C0);
-      if (r == 3) return const Color(0xFFCD7F32);
-      return const Color(0xFF00E5FF);
+      if (r == 1) return const Color(0xFFFFD700); // Ouro
+      if (r == 2) return const Color(0xFF9E9E9E); // Prata (escurecido para destacar no branco)
+      if (r == 3) return const Color(0xFFCD7F32); // Bronze
+      return kProfiteclaBlue; // Restantes a azul em vez de cyan
     }
 
     final Color rankColor = getRankColor(rank);
     
-    // Cores da cápsula (Usa a cor personalizada ou o roxo padrão se o jogador não tiver escolhido)
-    final Color topColor = capsuleTop != null ? Color(capsuleTop) : const Color(0xFF9575CD);
-    final Color bottomColor = capsuleBottom != null ? Color(capsuleBottom) : const Color(0xFF512DA8);
+    // Cores da cápsula (Agora o padrão é o Azul Profitecla para combinar com a nova identidade)
+    final Color topColor = capsuleTop != null ? Color(capsuleTop) : kProfiteclaBlue;
+    final Color bottomColor = capsuleBottom != null ? Color(capsuleBottom) : const Color(0xFF005C9E);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: isUser
-            ? const Color(0xFF673AB7).withValues(alpha: 0.15)
-            : Colors.white.withValues(alpha: 0.03),
+            ? kProfiteclaBlue.withValues(alpha: 0.05)
+            : Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isUser
-              ? const Color(0xFF00E5FF).withValues(alpha: 0.5)
-              : Colors.white.withValues(alpha: 0.08),
+              ? kProfiteclaBlue.withValues(alpha: 0.3)
+              : const Color(0xFFE0E0E0),
           width: isUser ? 1.5 : 1.0,
         ),
         boxShadow: [
           BoxShadow(
             color: isUser
-                ? const Color(0xFF00E5FF).withValues(alpha: 0.05)
-                : Colors.black.withValues(alpha: 0.1),
+                ? kProfiteclaBlue.withValues(alpha: 0.1)
+                : Colors.black.withValues(alpha: 0.03),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -693,20 +703,20 @@ class _EscalaScreenState extends State<EscalaScreen>
             width: 42,
             height: 56,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(21), // Arredonda para formato pílula
+              borderRadius: BorderRadius.circular(21),
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [topColor, bottomColor],
-                stops: const [0.5, 0.5], // Corte seco ao meio
+                stops: const [0.5, 0.5],
               ),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.4), // Brilho do plástico
+                color: Colors.white.withValues(alpha: 0.5),
                 width: 2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: bottomColor.withValues(alpha: 0.4),
+                  color: bottomColor.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -734,19 +744,19 @@ class _EscalaScreenState extends State<EscalaScreen>
                 Text(
                   name,
                   style: TextStyle(
-                    fontWeight: isUser ? FontWeight.w900 : FontWeight.bold,
+                    fontWeight: isUser ? FontWeight.w900 : FontWeight.w800,
                     fontSize: 15,
-                    color: Colors.white,
+                    color: isUser ? kProfiteclaBlue : kTextDark,
                     letterSpacing: 0.3,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   role.toUpperCase(),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white54,
+                    color: kTextMuted,
                     letterSpacing: 0.8,
                   ),
                 ),
@@ -765,4 +775,4 @@ class _EscalaScreenState extends State<EscalaScreen>
       ),
     );
   }
-} // CHAVETA DE FECHO AGORA PRESENTE!
+}
