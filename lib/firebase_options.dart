@@ -41,49 +41,45 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDvTPGxkHzA0CGxjFaxOq4qLNvVtRj3oPw',
-    appId: '1:404973927098:web:04b2e16f18379fd11f6083',
-    messagingSenderId: '404973927098',
-    projectId: 'pharma-inc-d6c8d',
-    authDomain: 'pharma-inc-d6c8d.firebaseapp.com',
-    storageBucket: 'pharma-inc-d6c8d.firebasestorage.app',
-    measurementId: 'G-6FV42XJSFE',
+    apiKey: 'AIzaSyAiLhiZB-GhcpDykHrjGqpU5-bQgUHB5e0',
+    appId: '1:951250322643:web:cf1cc690564a19ce6d8026',
+    messagingSenderId: '951250322643',
+    projectId: 'pharma-inc-comunidade',
+    authDomain: 'pharma-inc-comunidade.firebaseapp.com',
+    storageBucket: 'pharma-inc-comunidade.firebasestorage.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAKZkblVFCR-VNIZtSNMr0Kgw275XxTlw8',
-    appId: '1:404973927098:ios:b8f843a4a65165761f6083',
-    messagingSenderId: '404973927098',
-    projectId: 'pharma-inc-d6c8d',
-    storageBucket: 'pharma-inc-d6c8d.firebasestorage.app',
-    iosClientId: '404973927098-ffmnabuvpshr8g29lht8ube7b3dk4e99.apps.googleusercontent.com',
+    apiKey: 'AIzaSyAh7zzIr8RotaiKTjwEILZm0ciqRFAwla0',
+    appId: '1:951250322643:ios:a79e47ef19a0b8d26d8026',
+    messagingSenderId: '951250322643',
+    projectId: 'pharma-inc-comunidade',
+    storageBucket: 'pharma-inc-comunidade.firebasestorage.app',
     iosBundleId: 'com.example.papJogo',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAKZkblVFCR-VNIZtSNMr0Kgw275XxTlw8',
-    appId: '1:404973927098:ios:b8f843a4a65165761f6083',
-    messagingSenderId: '404973927098',
-    projectId: 'pharma-inc-d6c8d',
-    storageBucket: 'pharma-inc-d6c8d.firebasestorage.app',
-    iosClientId: '404973927098-ffmnabuvpshr8g29lht8ube7b3dk4e99.apps.googleusercontent.com',
+    apiKey: 'AIzaSyAh7zzIr8RotaiKTjwEILZm0ciqRFAwla0',
+    appId: '1:951250322643:ios:a79e47ef19a0b8d26d8026',
+    messagingSenderId: '951250322643',
+    projectId: 'pharma-inc-comunidade',
+    storageBucket: 'pharma-inc-comunidade.firebasestorage.app',
     iosBundleId: 'com.example.papJogo',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDvTPGxkHzA0CGxjFaxOq4qLNvVtRj3oPw',
-    appId: '1:404973927098:web:650d193786aeecf31f6083',
-    messagingSenderId: '404973927098',
-    projectId: 'pharma-inc-d6c8d',
-    authDomain: 'pharma-inc-d6c8d.firebaseapp.com',
-    storageBucket: 'pharma-inc-d6c8d.firebasestorage.app',
-    measurementId: 'G-FWZKD2XFE5',
+    apiKey: 'AIzaSyAiLhiZB-GhcpDykHrjGqpU5-bQgUHB5e0',
+    appId: '1:951250322643:web:a2f74aed684952246d8026',
+    messagingSenderId: '951250322643',
+    projectId: 'pharma-inc-comunidade',
+    authDomain: 'pharma-inc-comunidade.firebaseapp.com',
+    storageBucket: 'pharma-inc-comunidade.firebasestorage.app',
   );
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyARTseAjdtf3Fsz8-fSB2AdhoOylF9y8Po',
-    appId: '1:404973927098:android:4ed5a81d53d671a71f6083',
-    messagingSenderId: '404973927098',
-    projectId: 'pharma-inc-d6c8d',
-    storageBucket: 'pharma-inc-d6c8d.firebasestorage.app',
+    apiKey: 'AIzaSyCY44MnwruBwkyjifAlq4XnRnwS0BJnNbo',
+    appId: '1:951250322643:android:8eea901dc5ce77db6d8026',
+    messagingSenderId: '951250322643',
+    projectId: 'pharma-inc-comunidade',
+    storageBucket: 'pharma-inc-comunidade.firebasestorage.app',
   );
 }

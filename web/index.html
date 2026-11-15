@@ -18,19 +18,33 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Simulador Interativo e Gamificado de Contextos Clínicos">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="Pharma Inc Community">
+  <!-- Mudei para default para que o relógio/bateria do iPhone fiquem visíveis num fundo claro -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Pharma SOS">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Tema Azul Profitecla para o topo do browser no Android -->
+  <meta name="theme-color" content="#008ad8">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>Pharma Inc Community</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Estilos para forçar a Splash Screen do Flutter Web a arrancar em Branco -->
+  <style>
+    body {
+      background-color: #FFFFFF;
+    }
+    .flutter-splash-screen {
+      background-color: #FFFFFF !important;
+    }
+  </style>
 </head>
 <body>
   <!--

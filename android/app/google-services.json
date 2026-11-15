@@ -1,43 +1,26 @@
 {
   "project_info": {
-    "project_number": "404973927098",
-    "project_id": "pharma-inc-d6c8d",
-    "storage_bucket": "pharma-inc-d6c8d.firebasestorage.app"
+    "project_number": "951250322643",
+    "project_id": "pharma-inc-comunidade",
+    "storage_bucket": "pharma-inc-comunidade.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:404973927098:android:4ed5a81d53d671a71f6083",
+        "mobilesdk_app_id": "1:951250322643:android:8eea901dc5ce77db6d8026",
         "android_client_info": {
           "package_name": "com.example.pap_jogo"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "404973927098-ugd3e2dmjrin94p5aqo2e6c0bafspqss.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyARTseAjdtf3Fsz8-fSB2AdhoOylF9y8Po"
+          "current_key": "AIzaSyCY44MnwruBwkyjifAlq4XnRnwS0BJnNbo"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "404973927098-ugd3e2dmjrin94p5aqo2e6c0bafspqss.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "404973927098-ffmnabuvpshr8g29lht8ube7b3dk4e99.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.example.papJogo"
-              }
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }
