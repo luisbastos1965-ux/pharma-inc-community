@@ -95,17 +95,7 @@ class _RulesScreenState extends State<RulesScreen> with SingleTickerProviderStat
                                       height: 1.2,
                                     ),
                                   ),
-                                  const SizedBox(height: 12),
-                                  const Text(
-                                    'Prepara-te para explorar a Profitecla. Lê atentamente como funcionam os desafios interativos.',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      color: kTextMuted,
-                                      height: 1.4,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 40),
+                                  const SizedBox(height: 36),
 
                                   // Regra 1 - Scanner
                                   _buildProtocolCard(

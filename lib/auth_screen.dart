@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math' as math;
-import 'dart:ui';
 import 'main.dart';
 import 'progress_manager.dart';
 
@@ -13,99 +13,44 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen>
-    with SingleTickerProviderStateMixin {
+class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
-  late AnimationController _pulseController;
-
-  final _numeroController = TextEditingController();
-  final _passwordController = TextEditingController();
+  String _numeroAtual = '';
 
   // Cores da Simbiose (Profitecla + Saúde)
   final Color _azulProfitecla = const Color(0xFF008AD8);
-  final Color _azulClinico = const Color(
-    0xFFE1F0FA,
-  ); // Fundo super leve e esterilizado
+  final Color _azulClinico = const Color(0xFFE1F0FA);
   final Color _cinzaTexto = const Color(0xFF333333);
 
-  // Padrão fixo para simular as barras de um código de barras real (espessuras variadas)
+  // Padrão fixo para simular as barras de um código de barras real
   final List<double> _barcodePattern = [
-    2,
-    4,
-    1,
-    3,
-    2,
-    1,
-    4,
-    2,
-    1,
-    3,
-    4,
-    1,
-    2,
-    2,
-    3,
-    1,
-    4,
-    2,
-    1,
-    3,
-    2,
-    4,
-    1,
-    2,
-    3,
-    1,
-    4,
-    2,
-    2,
-    1,
-    4,
-    3,
-    1,
-    2,
-    4,
-    2,
-    2,
-    1,
-    3,
-    1,
-    4,
-    2,
-    1,
-    3,
-    4,
-    2,
-    1,
-    2,
-    3,
-    1,
-    4,
-    2,
-    1,
-    3,
+    2, 4, 1, 3, 2, 1, 4, 2, 1, 3, 4, 1, 2, 2, 3, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3,
+    1, 4, 2, 2, 1, 4, 3, 1, 2, 4, 2, 2, 1, 3, 1, 4, 2, 1, 3, 4, 2, 1, 2, 3, 1,
+    4, 2, 1, 3,
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-
-    // Adiciona listener para o código de barras reativo atualizar o ecrã
-    _numeroController.addListener(() {
-      setState(() {});
+  void _onDigitTap(String digit) {
+    if (_numeroAtual.length >= 7) return;
+    HapticFeedback.lightImpact();
+    setState(() {
+      _numeroAtual += digit;
     });
   }
 
-  @override
-  void dispose() {
-    _numeroController.dispose();
-    _passwordController.dispose();
-    _pulseController.dispose();
-    super.dispose();
+  void _onBackspace() {
+    if (_numeroAtual.isEmpty) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _numeroAtual = _numeroAtual.substring(0, _numeroAtual.length - 1);
+    });
+  }
+
+  void _onClear() {
+    if (_numeroAtual.isEmpty) return;
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _numeroAtual = '';
+    });
   }
 
   void _showError(String message) {
@@ -141,49 +86,82 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   Future<void> _processLogin() async {
-    final numeroStr = _numeroController.text.trim();
-    final password = _passwordController.text.trim();
+    final numeroStr = _numeroAtual.trim();
 
-    if (numeroStr.isEmpty || password.isEmpty) {
-      _showError('Prescrição incompleta: Faltam dados.');
+    if (numeroStr.isEmpty) {
+      _showError('Marca o teu número no painel.');
       return;
     }
 
-    final numeroInvertido = numeroStr.split('').reversed.join('');
-    if (password != numeroInvertido) {
-      _showError(
-        'Fórmula rejeitada. Dica: A password é o teu número ao contrário.',
-      );
+    final bool isAluno = numeroStr.length == 7;
+    final bool isProfessor = numeroStr.length >= 3 && numeroStr.length <= 5;
+
+    if (!isAluno && !isProfessor) {
+      _showError('Número de identificação incompleto.');
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      final cred = await FirebaseAuth.instance.signInAnonymously();
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        final cred = await FirebaseAuth.instance.signInAnonymously();
+        user = cred.user;
+      }
 
-      if (cred.user != null) {
-        final uid = cred.user!.uid;
-        final docRef = FirebaseFirestore.instance
-            .collection('comunidade_users')
-            .doc(uid);
-        final doc = await docRef.get();
+      if (user != null) {
+        final preloadedDocId = 'user_$numeroStr';
+        final preloadedRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(preloadedDocId);
+        final preloadedSnap = await preloadedRef.get();
 
-        if (!doc.exists) {
-          await docRef.set({
-            'numero': numeroStr,
-            'name': 'Utente $numeroStr',
-            'curso': 'Comunidade Profitecla',
-            'audience': 2,
+        final sessionRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid);
+
+        if (preloadedSnap.exists) {
+          final data = preloadedSnap.data()!;
+          final displayName = data['name'] ?? 'Utente $numeroStr';
+
+          await sessionRef.set({
+            ...data,
+            'linkedDocId': preloadedDocId,
+            'lastLogin': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+          await user.updateDisplayName(displayName);
+        } else if (isProfessor) {
+          final profName = 'Prof. $numeroStr';
+          final profData = {
+            'name': profName,
+            'fullName': profName,
+            'studentId': numeroStr,
+            'course': 'Professores',
+            'class': 'Docentes',
+            'audience': 11,
             'xp': 0,
             'level': 1,
-            'careerTitle': 'Cidadão da Saúde',
+            'careerTitle': 'Docente Profitecla',
+            'capsuleTop': 4278225624,
+            'capsuleBottom': 4278213790,
             'createdAt': FieldValue.serverTimestamp(),
-          });
-        }
+          };
 
-        if (cred.user!.displayName == null) {
-          await cred.user!.updateDisplayName('Utente $numeroStr');
+          await preloadedRef.set(profData);
+          await sessionRef.set({
+            ...profData,
+            'linkedDocId': preloadedDocId,
+          }, SetOptions(merge: true));
+
+          await user.updateDisplayName(profName);
+        } else {
+          _showError(
+            'Número ($numeroStr) não encontrado na pauta ativa.',
+          );
+          if (mounted) setState(() => _isLoading = false);
+          return;
         }
 
         await ProgressManager().loadUserData();
@@ -196,7 +174,6 @@ class _AuthScreenState extends State<AuthScreen>
     }
   }
 
-  // Fundo com cruzes de farmácia subtis misturadas com estética escolar
   Widget _buildClinicalWatermark(
     IconData icon,
     double size,
@@ -213,13 +190,22 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
+  String? _getDetectedRoleBadge() {
+    if (_numeroAtual.length == 7) return 'ALUNO';
+    if (_numeroAtual.length >= 3 && _numeroAtual.length <= 5) return 'DOCENTE';
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final roleBadge = _getDetectedRoleBadge();
+    final int activeBarsCount =
+        ((_numeroAtual.length / 7) * _barcodePattern.length).round();
+
     return Scaffold(
       backgroundColor: _azulClinico,
       body: Stack(
         children: [
-          // MARCAS D'ÁGUA DA SIMBIOSE (Farmácia + Escola)
           Positioned(
             top: -20,
             right: -40,
@@ -240,47 +226,46 @@ class _AuthScreenState extends State<AuthScreen>
               -math.pi / 8,
             ),
           ),
-
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24.0,
-                  vertical: 16.0,
+                  vertical: 12.0,
                 ),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
+                  constraints: const BoxConstraints(maxWidth: 400),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // LOGO REDONDO CLÁSSICO
+                      // LOGO REDONDO COMPACTO
                       Container(
-                        padding: const EdgeInsets.all(18),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
                               color: _azulProfitecla.withValues(alpha: 0.15),
-                              blurRadius: 25,
-                              spreadRadius: 5,
+                              blurRadius: 20,
+                              spreadRadius: 4,
                             ),
                           ],
                         ),
                         child: Image.asset(
                           'assets/images/logo_splash.png',
-                          height: 100,
+                          height: 76,
                         ),
                       ),
 
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 24),
 
                       // CARTÃO DE SAÚDE ESCOLAR
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             BoxShadow(
                               color: _azulProfitecla.withValues(alpha: 0.12),
@@ -292,16 +277,16 @@ class _AuthScreenState extends State<AuthScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // HEADER DO CARTÃO (Identidade Profitecla + Farmácia)
+                            // HEADER DO CARTÃO
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                vertical: 16,
-                                horizontal: 24,
+                                vertical: 14,
+                                horizontal: 22,
                               ),
                               decoration: BoxDecoration(
                                 color: _azulProfitecla,
                                 borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(20),
+                                  top: Radius.circular(24),
                                 ),
                               ),
                               child: Row(
@@ -313,92 +298,137 @@ class _AuthScreenState extends State<AuthScreen>
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w900,
-                                      letterSpacing: 1.5,
-                                      fontSize: 13,
+                                      letterSpacing: 1.4,
+                                      fontSize: 12,
                                     ),
                                   ),
                                   Icon(
                                     Icons.health_and_safety_rounded,
                                     color: Colors.white.withValues(alpha: 0.9),
-                                    size: 22,
+                                    size: 20,
                                   ),
                                 ],
                               ),
                             ),
 
                             Padding(
-                              padding: const EdgeInsets.all(32),
+                              padding: const EdgeInsets.fromLTRB(24, 24, 24, 22),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  // CAMPO: NÚMERO DE UTENTE/ALUNO
-                                  _buildPillTextField(
-                                    controller: _numeroController,
-                                    label: 'N.º de Utente (Escola)',
-                                    icon: Icons.person_outline_rounded,
-                                    isPassword: false,
-                                  ),
-
-                                  const SizedBox(height: 24),
-
-                                  // CAMPO: FÓRMULA REVERSA
-                                  _buildPillTextField(
-                                    controller: _passwordController,
-                                    label: 'Fórmula Reversa (Password)',
-                                    icon: Icons.vaccines_rounded,
-                                    isPassword: true,
-                                  ),
-
-                                  const SizedBox(height: 16),
-
-                                  // POSOLOGIA (Dica)
-                                  AnimatedBuilder(
-                                    animation: _pulseController,
-                                    builder: (context, child) {
-                                      return Opacity(
-                                        opacity:
-                                            0.5 +
-                                            (_pulseController.value * 0.5),
-                                        child: Text(
-                                          'Posologia: Insere o teu número ao contrário na password.',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            color: _azulProfitecla.withValues(
-                                              alpha: 0.8,
+                                  // VISOR DIGITAL (CÁPSULA DE LEITURA)
+                                  Container(
+                                    height: 58,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _azulClinico.withValues(alpha: 0.55),
+                                      borderRadius: BorderRadius.circular(30),
+                                      border: Border.all(
+                                        color: _numeroAtual.isNotEmpty
+                                            ? _azulProfitecla.withValues(
+                                                alpha: 0.5,
+                                              )
+                                            : Colors.transparent,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.badge_outlined,
+                                          color: _azulProfitecla,
+                                          size: 22,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            _numeroAtual.isEmpty
+                                                ? 'N.º de Identificação'
+                                                : _numeroAtual
+                                                    .split('')
+                                                    .join(' '),
+                                            style: TextStyle(
+                                              fontWeight: _numeroAtual.isEmpty
+                                                  ? FontWeight.w600
+                                                  : FontWeight.w900,
+                                              fontSize: _numeroAtual.isEmpty
+                                                  ? 14
+                                                  : 20,
+                                              letterSpacing: _numeroAtual.isEmpty
+                                                  ? 0
+                                                  : 2.0,
+                                              color: _numeroAtual.isEmpty
+                                                  ? Colors.grey.shade500
+                                                  : _cinzaTexto,
                                             ),
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
                                           ),
                                         ),
-                                      );
-                                    },
+                                        if (roleBadge != null)
+                                          AnimatedContainer(
+                                            duration: const Duration(
+                                              milliseconds: 200,
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: _azulProfitecla
+                                                  .withValues(alpha: 0.12),
+                                              borderRadius:
+                                                  BorderRadius.circular(20),
+                                            ),
+                                            child: Text(
+                                              roleBadge,
+                                              style: TextStyle(
+                                                color: _azulProfitecla,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: 0.8,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
 
-                                  const SizedBox(height: 32),
+                                  const SizedBox(height: 18),
 
-                                  // BOTÃO TIPO CÁPSULA (Totalmente Arredondado)
+                                  // BLISTER NUMÉRICO (NUMPAD DISRUPTIVO)
+                                  _buildBlisterNumpad(),
+
+                                  const SizedBox(height: 20),
+
+                                  // BOTÃO TIPO CÁPSULA
                                   if (_isLoading)
-                                    const Center(
-                                      child: CircularProgressIndicator(
-                                        color: Color(
-                                          0xFF008AD8,
-                                        ), // Azul Profitecla forçado
+                                    const SizedBox(
+                                      height: 50,
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          color: Color(0xFF008AD8),
+                                        ),
                                       ),
                                     )
                                   else
                                     ElevatedButton(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: _azulProfitecla,
+                                        backgroundColor: roleBadge != null
+                                            ? _azulProfitecla
+                                            : _azulProfitecla.withValues(
+                                                alpha: 0.45,
+                                              ),
                                         foregroundColor: Colors.white,
                                         padding: const EdgeInsets.symmetric(
-                                          vertical: 16,
+                                          vertical: 15,
                                         ),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
                                             30,
                                           ),
                                         ),
-                                        elevation: 6,
+                                        elevation: roleBadge != null ? 6 : 0,
                                         shadowColor: _azulProfitecla.withValues(
                                           alpha: 0.4,
                                         ),
@@ -416,28 +446,40 @@ class _AuthScreenState extends State<AuthScreen>
                                       ),
                                     ),
 
-                                  // ESPAÇAMENTO DEPOIS DO BOTÃO
-                                  const SizedBox(height: 36),
+                                  const SizedBox(height: 22),
 
-                                  // CÓDIGO DE BARRAS (Largo e Sem Números)
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: _barcodePattern
-                                        .map(
-                                          (width) => Container(
-                                            // Reduzi a margem para 1.0 para as barras ficarem mais juntas
-                                            margin: const EdgeInsets.symmetric(
-                                              horizontal: 1.0,
-                                            ),
-                                            width:
-                                                width *
-                                                1.5, // Multipliquei a largura original para tornar tudo mais espesso e largo
-                                            height:
-                                                45, // Aumentei a altura para impor mais presença
-                                            color: Colors.grey.shade400,
-                                          ),
-                                        )
-                                        .toList(),
+                                  // CÓDIGO DE BARRAS REATIVO E CENTRADO
+                                  Center(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: List.generate(
+                                          _barcodePattern.length,
+                                          (index) {
+                                            final bool isLit =
+                                                index < activeBarsCount;
+                                            return AnimatedContainer(
+                                              duration: const Duration(
+                                                milliseconds: 180,
+                                              ),
+                                              margin:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 1.0,
+                                              ),
+                                              width:
+                                                  _barcodePattern[index] * 1.4,
+                                              height: 36,
+                                              color: isLit
+                                                  ? _azulProfitecla
+                                                  : Colors.grey.shade300,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -446,16 +488,15 @@ class _AuthScreenState extends State<AuthScreen>
                         ),
                       ),
 
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 22),
 
-                      // COPYRIGHT ORIGINAL RESTAURADO
                       const Text(
-                        'Pharma Inc. ©',
+                        'Pharma Inc. Community ©',
                         style: TextStyle(
                           color: Colors.black45,
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
-                          letterSpacing: 1.5,
+                          letterSpacing: 1.2,
                         ),
                       ),
                     ],
@@ -469,49 +510,80 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  // Inputs desenhados como "Cápsulas" de fármacos
-  Widget _buildPillTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    required bool isPassword,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: isPassword,
-      keyboardType: TextInputType.number,
-      style: TextStyle(
-        fontWeight: FontWeight.w700,
-        fontSize: 16,
-        color: _cinzaTexto,
-      ),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(
-          color: Colors.grey.shade500,
-          fontWeight: FontWeight.w600,
-          fontSize: 13,
-        ),
-        prefixIcon: Icon(
-          icon,
-          color: _azulProfitecla.withValues(alpha: 0.7),
-          size: 22,
-        ),
-        filled: true,
-        fillColor: _azulClinico.withValues(alpha: 0.5),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 24,
-          vertical: 16,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30), // Formato de Cápsula
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide(color: _azulProfitecla, width: 2),
-        ),
-      ),
+  Widget _buildBlisterNumpad() {
+    final rows = [
+      ['1', '2', '3'],
+      ['4', '5', '6'],
+      ['7', '8', '9'],
+      ['C', '0', '⌫'],
+    ];
+
+    return Column(
+      children: rows.map((row) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            children: row.map((key) {
+              final bool isAction = key == 'C' || key == '⌫';
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                  child: Material(
+                    color: isAction
+                        ? _azulClinico.withValues(alpha: 0.7)
+                        : const Color(0xFFF7FAFC),
+                    borderRadius: BorderRadius.circular(22),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(22),
+                      splashColor: _azulProfitecla.withValues(alpha: 0.15),
+                      highlightColor: _azulProfitecla.withValues(alpha: 0.08),
+                      onTap: () {
+                        if (key == 'C') {
+                          _onClear();
+                        } else if (key == '⌫') {
+                          _onBackspace();
+                        } else {
+                          _onDigitTap(key);
+                        }
+                      },
+                      child: Container(
+                        height: 46,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: isAction
+                                ? _azulProfitecla.withValues(alpha: 0.2)
+                                : Colors.grey.shade200,
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Center(
+                          child: key == '⌫'
+                              ? Icon(
+                                  Icons.backspace_outlined,
+                                  size: 19,
+                                  color: _azulProfitecla,
+                                )
+                              : Text(
+                                  key,
+                                  style: TextStyle(
+                                    fontSize: isAction ? 15 : 19,
+                                    fontWeight: FontWeight.w800,
+                                    color: isAction
+                                        ? _azulProfitecla
+                                        : _cinzaTexto,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      }).toList(),
     );
   }
 }

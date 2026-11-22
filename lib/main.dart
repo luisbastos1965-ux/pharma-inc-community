@@ -18,7 +18,8 @@ import 'pratica_screen.dart';
 
 // Altura partilhada entre a cápsula de modos e a barra de navegação
 const double kBarraAltura = 56;
-const double kEspacoVertical = 28; // distância vertical padrão entre blocos do menu
+const double kEspacoVertical =
+    28; // distância vertical padrão entre blocos do menu
 
 // Cores Oficiais Profitecla e Light Mode
 const Color kProfiteclaBlue = Color(0xFF008AD8);
@@ -27,9 +28,7 @@ const Color kTextMuted = Color(0xFF757575);
 
 // Inicializa o Firebase
 Future<void> _initFirebase() async {
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   if (kIsWeb) {
     await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
   }
@@ -56,7 +55,7 @@ class FirebaseInitializer extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
                   child: Text(
-                    'Erro de configuração Firebase:\n${snapshot.error}', 
+                    'Erro de configuração Firebase:\n${snapshot.error}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: kTextDark),
                   ),
@@ -65,16 +64,18 @@ class FirebaseInitializer extends StatelessWidget {
             ),
           );
         }
-        
+
         if (snapshot.connectionState == ConnectionState.done) {
           return const PharmaIncApp();
         }
-        
+
         return const MaterialApp(
           debugShowCheckedModeBanner: false,
           home: Scaffold(
             backgroundColor: Colors.white,
-            body: Center(child: CircularProgressIndicator(color: kProfiteclaBlue)),
+            body: Center(
+              child: CircularProgressIndicator(color: kProfiteclaBlue),
+            ),
           ),
         );
       },
@@ -99,7 +100,7 @@ class PharmaIncApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: Colors.white,
         primaryColor: kProfiteclaBlue,
-        
+
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: <TargetPlatform, PageTransitionsBuilder>{
             TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
@@ -142,39 +143,34 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _checkSessionAndNavigate() async {
     await Future.delayed(const Duration(milliseconds: 3500));
-    
+
     if (!mounted) return;
 
     User? user;
     try {
       try {
         final redirectCred = await FirebaseAuth.instance.getRedirectResult();
-        user = redirectCred?.user;
+        user = redirectCred.user;
       } catch (e) {
         debugPrint('getRedirectResult falhou (ignorado): $e');
       }
 
-      user ??= await FirebaseAuth.instance
-          .authStateChanges()
-          .first
-          .timeout(const Duration(seconds: 5), onTimeout: () => FirebaseAuth.instance.currentUser);
+      user ??= await FirebaseAuth.instance.authStateChanges().first.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => FirebaseAuth.instance.currentUser,
+      );
 
       if (user != null) {
-        final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+        final docRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid);
         final doc = await docRef.get();
 
-        if (!doc.exists) {
-          await docRef.set({
-            'name': user.displayName ?? 'Farmacêutico',
-            'audience': 5, 
-            'xp': 0,
-            'level': 1,
-            'careerTitle': 'Estagiário/a',
-            'createdAt': FieldValue.serverTimestamp(),
-          });
+        if (!doc.exists || doc.data()?['studentId'] == null) {
+          user = null;
+        } else {
+          await ProgressManager().loadUserData();
         }
-
-        await ProgressManager().loadUserData();
       }
     } catch (e) {
       debugPrint('Erro ao verificar sessão no SplashScreen: $e');
@@ -231,7 +227,8 @@ class MenuScreen extends StatefulWidget {
   State<MenuScreen> createState() => _MenuScreenState();
 }
 
-class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateMixin {
+class _MenuScreenState extends State<MenuScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
   bool _isBgmStarted = false;
@@ -240,7 +237,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
   void initState() {
     super.initState();
     AudioManager().playCrossfade('bgm.mp3');
-    
+
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -257,6 +254,18 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
+  String _firstName(String fullName) {
+    final trimmed = fullName.trim();
+    if (trimmed.isEmpty) return 'Comunidade';
+    return trimmed.split(RegExp(r'\s+')).first;
+  }
+
+  String _firstInitial(String fullName) {
+    final first = _firstName(fullName);
+    final match = RegExp(r'[A-Za-zÀ-ÖØ-öø-ÿ]').firstMatch(first);
+    return (match?.group(0) ?? first[0]).toUpperCase();
+  }
+
   Widget _buildMolecule(Color color, double size) {
     return Transform.rotate(
       angle: math.pi / 4,
@@ -269,8 +278,12 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
         ),
         child: Center(
           child: Container(
-            width: size / 2, height: size / 2,
-            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: color, width: 4)),
+            width: size / 2,
+            height: size / 2,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 4),
+            ),
           ),
         ),
       ),
@@ -279,6 +292,10 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    final String activeName = ProgressManager().playerName.isNotEmpty
+        ? ProgressManager().playerName
+        : (FirebaseAuth.instance.currentUser?.displayName ?? 'Comunidade');
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Listener(
@@ -291,15 +308,31 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
         child: Stack(
           children: [
             // Moléculas em marca de água Azul Profitecla
-            Positioned(top: -40, right: -60, child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.05), 220)),
-            Positioned(bottom: 100, left: -70, child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.08), 260)),
+            Positioned(
+              top: -40,
+              right: -60,
+              child: _buildMolecule(
+                kProfiteclaBlue.withValues(alpha: 0.05),
+                220,
+              ),
+            ),
+            Positioned(
+              bottom: 100,
+              left: -70,
+              child: _buildMolecule(
+                kProfiteclaBlue.withValues(alpha: 0.08),
+                260,
+              ),
+            ),
 
             SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) => SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
                     child: IntrinsicHeight(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -321,11 +354,16 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                         gradient: const LinearGradient(
                                           begin: Alignment.topLeft,
                                           end: Alignment.bottomRight,
-                                          colors: [Color(0xFF33B5FF), kProfiteclaBlue],
+                                          colors: [
+                                            Color(0xFF33B5FF),
+                                            kProfiteclaBlue,
+                                          ],
                                         ),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: kProfiteclaBlue.withValues(alpha: 0.3),
+                                            color: kProfiteclaBlue.withValues(
+                                              alpha: 0.3,
+                                            ),
                                             blurRadius: 8,
                                             offset: const Offset(0, 3),
                                           ),
@@ -333,12 +371,10 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                       ),
                                       child: Center(
                                         child: Text(
-                                          FirebaseAuth.instance.currentUser?.displayName?.isNotEmpty == true 
-                                              ? FirebaseAuth.instance.currentUser!.displayName![0].toUpperCase() 
-                                              : 'P',
+                                          _firstInitial(activeName),
                                           style: const TextStyle(
-                                            fontWeight: FontWeight.w900, 
-                                            fontSize: 18, 
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 18,
                                             color: Colors.white,
                                           ),
                                         ),
@@ -346,40 +382,59 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                     ),
                                     const SizedBox(width: 12),
                                     Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text.rich(
                                           TextSpan(
                                             children: [
                                               TextSpan(
-                                                text: '${FirebaseAuth.instance.currentUser?.displayName?.split(' ')[0] ?? 'Comunidade'} • ',
-                                                style: const TextStyle(fontWeight: FontWeight.w900, color: kTextDark, fontSize: 13),
+                                                text:
+                                                    '${_firstName(activeName)} • ',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w900,
+                                                  color: kTextDark,
+                                                  fontSize: 13,
+                                                ),
                                               ),
                                               TextSpan(
-                                                text: ProgressManager().audienceName,
-                                                style: const TextStyle(fontWeight: FontWeight.w900, color: kProfiteclaBlue, fontSize: 13),
+                                                text: ProgressManager()
+                                                    .audienceName,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w900,
+                                                  color: kProfiteclaBlue,
+                                                  fontSize: 13,
+                                                ),
                                               ),
                                             ],
                                           ),
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          '${ProgressManager().careerTitle} • Nível ${ProgressManager().currentLevel} (${ProgressManager().currentXP} XP)',
-                                          style: const TextStyle(fontWeight: FontWeight.w700, color: kTextMuted, fontSize: 11),
+                                          '${ProgressManager().currentXP} mg',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            color: kTextMuted,
+                                            fontSize: 11,
+                                          ),
                                         ),
                                       ],
                                     ),
                                   ],
                                 ),
-                                
+
                                 Container(
                                   decoration: BoxDecoration(
-                                    color: kProfiteclaBlue.withValues(alpha: 0.08),
+                                    color: kProfiteclaBlue.withValues(
+                                      alpha: 0.08,
+                                    ),
                                     shape: BoxShape.circle,
                                   ),
                                   child: IconButton(
                                     icon: Icon(
-                                      AudioManager().isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                                      AudioManager().isMuted
+                                          ? Icons.volume_off_rounded
+                                          : Icons.volume_up_rounded,
                                       color: kProfiteclaBlue,
                                       size: 20,
                                     ),
@@ -394,7 +449,7 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                             ),
 
                             // EMPURRA MAIS A PARTIR DO TOPO PARA CENTRAR MELHOR O LOGO GRANDE
-                            const Spacer(flex: 3), 
+                            const Spacer(flex: 3),
 
                             // LOGO BALANÇANTE
                             Center(
@@ -411,13 +466,18 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                     shape: BoxShape.circle,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: kProfiteclaBlue.withValues(alpha: 0.05), 
-                                        blurRadius: 40, 
-                                        spreadRadius: 5
+                                        color: kProfiteclaBlue.withValues(
+                                          alpha: 0.05,
+                                        ),
+                                        blurRadius: 40,
+                                        spreadRadius: 5,
                                       ),
                                     ],
                                   ),
-                                  child: Image.asset('assets/images/logo_splash.png', height: 320),
+                                  child: Image.asset(
+                                    'assets/images/logo_splash.png',
+                                    height: 320,
+                                  ),
                                 ),
                               ),
                             ),
@@ -435,23 +495,31 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                   height: kBarraAltura,
                                   decoration: BoxDecoration(
                                     color: Colors.white,
-                                    borderRadius: BorderRadius.circular(kBarraAltura / 2),
-                                    border: Border.all(color: const Color(0xFFE0E0E0)),
+                                    borderRadius: BorderRadius.circular(
+                                      kBarraAltura / 2,
+                                    ),
+                                    border: Border.all(
+                                      color: const Color(0xFFE0E0E0),
+                                    ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.04),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.04,
+                                        ),
                                         blurRadius: 15,
                                         offset: const Offset(0, 5),
                                       ),
                                     ],
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceEvenly,
                                     children: [
                                       // METADE ESQUERDA
                                       Expanded(
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceEvenly,
                                           children: [
                                             _buildDockIcon(
                                               icon: Icons.menu_book_rounded,
@@ -460,7 +528,10 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                               onTap: () {
                                                 Navigator.push(
                                                   context,
-                                                  MaterialPageRoute(builder: (context) => const RulesScreen()),
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        const RulesScreen(),
+                                                  ),
                                                 );
                                               },
                                             ),
@@ -471,7 +542,10 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                               onTap: () async {
                                                 await Navigator.push(
                                                   context,
-                                                  MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        const ProfileScreen(),
+                                                  ),
                                                 );
                                                 setState(() {});
                                               },
@@ -479,14 +553,15 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                           ],
                                         ),
                                       ),
-                                      
+
                                       // ESPAÇO VAZIO NO CENTRO (Para a meia-lua do botão)
                                       const SizedBox(width: 70),
-                                      
+
                                       // METADE DIREITA
                                       Expanded(
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceEvenly,
                                           children: [
                                             _buildDockIcon(
                                               icon: Icons.leaderboard_rounded,
@@ -495,7 +570,10 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                               onTap: () {
                                                 Navigator.push(
                                                   context,
-                                                  MaterialPageRoute(builder: (context) => const EscalaScreen()),
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        const EscalaScreen(),
+                                                  ),
                                                 );
                                               },
                                             ),
@@ -506,7 +584,10 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                               onTap: () async {
                                                 await Navigator.push(
                                                   context,
-                                                  MaterialPageRoute(builder: (context) => const GabineteScreen()),
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        const GabineteScreen(),
+                                                  ),
                                                 );
                                                 setState(() {});
                                               },
@@ -517,13 +598,16 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                     ],
                                   ),
                                 ),
-                                
+
                                 // O BOTÃO CENTRAL DE AÇÃO (FAB) FLUTUANTE
                                 GestureDetector(
                                   onTap: () {
                                     Navigator.push(
                                       context,
-                                      MaterialPageRoute(builder: (context) => const PraticaScreen()),
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const PraticaScreen(),
+                                      ),
                                     );
                                   },
                                   child: Container(
@@ -532,10 +616,15 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: kProfiteclaBlue,
-                                      border: Border.all(color: Colors.white, width: 4),
+                                      border: Border.all(
+                                        color: Colors.white,
+                                        width: 4,
+                                      ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: kProfiteclaBlue.withValues(alpha: 0.4),
+                                          color: kProfiteclaBlue.withValues(
+                                            alpha: 0.4,
+                                          ),
                                           blurRadius: 15,
                                           offset: const Offset(0, 8),
                                         ),
@@ -543,8 +632,8 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                     ),
                                     child: const Center(
                                       child: Icon(
-                                        Icons.qr_code_scanner_rounded, 
-                                        color: Colors.white, 
+                                        Icons.qr_code_scanner_rounded,
+                                        color: Colors.white,
                                         size: 30,
                                       ),
                                     ),
@@ -552,12 +641,12 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
                                 ),
                               ],
                             ),
-                            
+
                             const SizedBox(height: 12),
-                            
-                            // COPYRIGHT RESTAURADO
+
+                            // COPYRIGHT
                             const Text(
-                              'Pharma Inc. ©',
+                              'Pharma Inc. Community ©',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,

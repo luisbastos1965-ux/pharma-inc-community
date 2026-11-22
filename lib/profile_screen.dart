@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math' as math;
 import 'progress_manager.dart';
 import 'auth_screen.dart';
-import 'escala_screen.dart' show audienceLabel; 
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -17,7 +16,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
-  
+
   String _firestoreUserName = '';
   String _playerLicenseId = 'PI-0000';
   bool _isLoadingName = true;
@@ -29,31 +28,31 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   // Cores da cápsula (agora com o Azul Profitecla como base)
   static const Color _defaultCapsuleTop = kProfiteclaBlue;
-  static const Color _defaultCapsuleBottom = Color(0xFF005C9E); 
+  static const Color _defaultCapsuleBottom = Color(0xFF005C9E);
   Color _capsuleTop = _defaultCapsuleTop;
   Color _capsuleBottom = _defaultCapsuleBottom;
 
   static const List<Color> _capsulePalette = [
     kProfiteclaBlue,
-    Color(0xFF005C9E), 
-    Color(0xFF9575CD), 
-    Color(0xFF512DA8), 
-    Color(0xFF42A5F5), 
-    Color(0xFF1565C0), 
-    Color(0xFF00BCD4), 
-    Color(0xFF0097A7), 
-    Color(0xFF26A69A), 
-    Color(0xFF00796B), 
-    Color(0xFF66BB6A), 
-    Color(0xFF388E3C), 
-    Color(0xFFFFA726), 
-    Color(0xFFEF6C00), 
-    Color(0xFFEF5350), 
-    Color(0xFFC62828), 
-    Color(0xFFEC407A), 
-    Color(0xFFAD1457), 
-    Color(0xFF8D6E63), 
-    Color(0xFF455A64), 
+    Color(0xFF005C9E),
+    Color(0xFF9575CD),
+    Color(0xFF512DA8),
+    Color(0xFF42A5F5),
+    Color(0xFF1565C0),
+    Color(0xFF00BCD4),
+    Color(0xFF0097A7),
+    Color(0xFF26A69A),
+    Color(0xFF00796B),
+    Color(0xFF66BB6A),
+    Color(0xFF388E3C),
+    Color(0xFFFFA726),
+    Color(0xFFEF6C00),
+    Color(0xFFEF5350),
+    Color(0xFFC62828),
+    Color(0xFFEC407A),
+    Color(0xFFAD1457),
+    Color(0xFF8D6E63),
+    Color(0xFF455A64),
   ];
 
   @override
@@ -67,18 +66,31 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     _fetchUserDataFromFirestore();
   }
 
+  String _firstNameInitial(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '?';
+    final firstWord = trimmed.split(RegExp(r'\s+')).first;
+    final match = RegExp(r'[A-Za-zÀ-ÖØ-öø-ÿ]').firstMatch(firstWord);
+    return (match?.group(0) ?? firstWord[0]).toUpperCase();
+  }
+
   Future<void> _fetchUserDataFromFirestore() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         final shortUid = user.uid.length >= 6 ? user.uid.substring(0, 6).toUpperCase() : '8492PI';
-        
+
         final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
         if (doc.exists && doc.data() != null) {
           if (!mounted) return;
           final data = doc.data()!;
+          final loadedName = (data['name'] ?? user.displayName ?? 'Utilizador').toString().trim();
+          ProgressManager().playerName = loadedName;
+          if (data['audience'] is num) {
+            ProgressManager().selectedAudience = (data['audience'] as num).toInt();
+          }
           setState(() {
-            _firestoreUserName = data['name'] ?? user.displayName ?? 'Aluno/a';
+            _firestoreUserName = loadedName;
             _playerLicenseId = 'REG. Nº #$shortUid';
             _capsuleTop = _colorFromData(data['capsuleTop']) ?? _defaultCapsuleTop;
             _capsuleBottom = _colorFromData(data['capsuleBottom']) ?? _defaultCapsuleBottom;
@@ -90,11 +102,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     } catch (e) {
       debugPrint('Erro ao carregar dados do Firestore: $e');
     }
-    
+
     if (mounted) {
       final user = FirebaseAuth.instance.currentUser;
+      final fallbackName = (user?.displayName ?? ProgressManager().playerName).trim();
       setState(() {
-        _firestoreUserName = user?.displayName ?? 'Aluno/a';
+        _firestoreUserName = fallbackName.isEmpty ? 'Utilizador' : fallbackName;
         _playerLicenseId = 'REG. Nº #PI-2027';
         _isLoadingName = false;
       });
@@ -181,16 +194,16 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     final String displayName = _isLoadingName ? 'A carregar...' : _firestoreUserName;
-    final String careerTitle = ProgressManager().careerTitle;
-    final String audienceName = ProgressManager().audienceName; 
+    final String capsuleLetter = _isLoadingName ? '' : _firstNameInitial(_firestoreUserName);
+    final String audienceName = ProgressManager().audienceName;
 
     return Scaffold(
-      backgroundColor: Colors.white, 
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
           Positioned(top: -50, right: -50, child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.05), 200)),
           Positioned(bottom: 100, left: -80, child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.08), 250)),
-          
+
           SafeArea(
             child: Column(
               children: [
@@ -218,7 +231,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
                 // CONTEÚDO CENTRADO VERTICALMENTE
                 Expanded(
-                  child: Center( // O Center empurra o SingleChildScrollView para o meio do ecrã
+                  child: Center(
                     child: SingleChildScrollView(
                       physics: const BouncingScrollPhysics(),
                       child: FadeTransition(
@@ -232,25 +245,25 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  // AVATAR CÁPSULA (Aumentámos o tamanho para dar mais destaque)
+                                  // AVATAR CÁPSULA
                                   GestureDetector(
-                                    onTap: _isLoadingName ? null : () => _showCapsuleEditor(displayName),
+                                    onTap: _isLoadingName ? null : () => _showCapsuleEditor(_firestoreUserName),
                                     child: Stack(
                                       clipBehavior: Clip.none,
                                       children: [
                                         _buildCapsuleAvatar(
-                                          letter: displayName.isNotEmpty ? displayName[0].toUpperCase() : 'A',
+                                          letter: capsuleLetter,
                                           top: _capsuleTop,
                                           bottom: _capsuleBottom,
-                                          width: 130,   // Mais largo
-                                          height: 180,  // Mais alto
-                                          fontSize: 64, // Letra maior
+                                          width: 130,
+                                          height: 180,
+                                          fontSize: 64,
                                         ),
                                         Positioned(
                                           right: -4,
-                                          bottom: 12, // Subimos a paleta ligeiramente para acompanhar o novo tamanho
+                                          bottom: 12,
                                           child: Container(
-                                            padding: const EdgeInsets.all(10), // Paleta ligeiramente maior
+                                            padding: const EdgeInsets.all(10),
                                             decoration: BoxDecoration(
                                               color: Colors.white,
                                               shape: BoxShape.circle,
@@ -265,18 +278,18 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                       ],
                                     ),
                                   ),
-                                  
-                                  const SizedBox(height: 32), // Mais respiro antes do nome
-                                  
+
+                                  const SizedBox(height: 32),
+
                                   // NOME
                                   Text(
                                     displayName,
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: kTextDark, letterSpacing: -0.5),
                                   ),
-                                  
-                                  const SizedBox(height: 12), // Mais respiro antes do registo
-                                  
+
+                                  const SizedBox(height: 12),
+
                                   // NÚMERO DE CÉDULA OFICIAL
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -294,9 +307,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                       ),
                                     ],
                                   ),
-                                  
-                                  const SizedBox(height: 36), // Distância generosa até à Tag final
-                                  
+
+                                  const SizedBox(height: 36),
+
                                   // TAG EXCLUSIVA DO CURSO COM ÍCONE DINÂMICO
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -318,8 +331,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                       ],
                                     ),
                                   ),
-                                  
-                                  const SizedBox(height: 20), // Pequena margem de segurança no fundo
+
+                                  const SizedBox(height: 20),
                                 ],
                               ),
                             ),
@@ -354,20 +367,20 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            top,    
-            bottom, 
+            top,
+            bottom,
           ],
-          stops: const [0.5, 0.5], 
+          stops: const [0.5, 0.5],
         ),
         boxShadow: [
           BoxShadow(
-            color: bottom.withValues(alpha: 0.3), // Sombra ligeiramente mais suave
+            color: bottom.withValues(alpha: 0.3),
             blurRadius: 25,
             offset: const Offset(0, 10),
           ),
         ],
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.8), // Brilho mais visível
+          color: Colors.white.withValues(alpha: 0.8),
           width: 3.5,
         ),
       ),
@@ -433,7 +446,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   }
 
   void _showCapsuleEditor(String displayName) {
-    final String letter = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'A';
+    final String letter = _firstNameInitial(displayName);
     Color tempTop = _capsuleTop;
     Color tempBottom = _capsuleBottom;
 
@@ -538,7 +551,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
 
-IconData _getIconForAudience(String audience) {
+  IconData _getIconForAudience(String audience) {
     if (audience == 'Gestão e Administração') return Icons.business_center_rounded;
     if (audience == 'Desenvolvimento de Software') return Icons.computer_rounded;
     if (audience == 'Comunicação e Marketing') return Icons.campaign_rounded;
@@ -550,7 +563,7 @@ IconData _getIconForAudience(String audience) {
     if (audience == 'Secretariado Executivo') return Icons.assignment_ind_rounded;
     if (audience == 'Comunicação e Serviço Digital') return Icons.devices_rounded;
     if (audience == 'Professores') return Icons.school_rounded;
-    return Icons.group_rounded; // Default
+    return Icons.group_rounded;
   }
 
   Widget _buildMolecule(Color color, double size) {

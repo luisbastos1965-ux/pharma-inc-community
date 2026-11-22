@@ -7,50 +7,42 @@ class ProgressManager {
   factory ProgressManager() => _instance;
   ProgressManager._internal();
 
-  int currentXP = 0;
-  int currentLevel = 1; // 1 a 5 (Estagiário/a a Diretor/a Técnico/a)
-  int nextLevelXP = 300;
-  int selectedAudience = 3; // 1: Juniores, 2: Comunidade, 3: TAF, 4: Univ, 5: Farmacêuticos
-  String playerName = 'Farmacêutico';
-
-  String get careerTitle {
-    switch (currentLevel) {
-      case 1:
-        return 'Estagiário/a';
-      case 2:
-        return 'Auxiliar';
-      case 3:
-        return 'Técnico/a Júnior';
-      case 4:
-        return 'Técnico/a Sénior';
-      case 5:
-      default:
-        return 'Diretor/a Técnico/a';
-    }
-  }
+  int currentXP = 0; // Pontuação em mg para o ranking (Escala)
+  int selectedAudience = 11; // 1..10 cursos Profitecla | 11: Professores
+  String playerName = 'Utilizador';
 
   String get audienceName {
     switch (selectedAudience) {
       case 1:
-        return 'Juniores';
+        return 'Gestão e Administração';
       case 2:
-        return 'Comunidade';
+        return 'Desenvolvimento de Software';
       case 3:
-        return 'TAF';
+        return 'Comunicação e Marketing';
       case 4:
-        return 'Universitários';
+        return 'Multimédia';
       case 5:
+        return 'Cozinha e Restauração';
+      case 6:
+        return 'Turismo';
+      case 7:
+        return 'Auxiliar de Saúde';
+      case 8:
+        return 'Auxiliar de Farmácia';
+      case 9:
+        return 'Secretariado Executivo';
+      case 10:
+        return 'Comunicação e Serviço Digital';
+      case 11:
       default:
-        return 'Farmacêuticos';
+        return 'Professores';
     }
   }
 
-  // Mantido por compatibilidade
   Future<void> init() async {
     await loadUserData();
   }
 
-  // Carrega os dados do jogador diretamente da Cloud (Firestore)
   Future<void> loadUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -63,29 +55,25 @@ class ProgressManager {
 
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
-        playerName = data['name'] ?? 'Jogador';
-        currentXP = data['xp'] ?? 0;
-        selectedAudience = data['audience'] ?? 3;
-        _calculateLevel();
+        playerName =
+            (data['name'] ?? user.displayName ?? 'Utilizador').toString().trim();
+        currentXP = ((data['xp'] ?? 0) as num).toInt();
+        selectedAudience = ((data['audience'] ?? 11) as num).toInt();
       }
     } catch (e) {
       debugPrint('Erro ao carregar dados do Firestore: $e');
     }
   }
 
-  // Adiciona XP e sincroniza imediatamente com a Cloud
   Future<void> addXP(int amount) async {
     currentXP += amount;
     if (currentXP < 0) currentXP = 0;
-    _calculateLevel();
 
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'xp': currentXP,
-        'level': currentLevel,
-        'careerTitle': careerTitle,
-      });
+      }, SetOptions(merge: true));
     }
   }
 
@@ -93,42 +81,19 @@ class ProgressManager {
     selectedAudience = newAudience;
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'audience': selectedAudience,
-      });
+      }, SetOptions(merge: true));
     }
   }
 
   Future<void> resetProgress() async {
     currentXP = 0;
-    currentLevel = 1;
-    _calculateLevel();
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'xp': 0,
-        'level': 1,
-        'careerTitle': careerTitle,
-      });
-    }
-  }
-
-  void _calculateLevel() {
-    if (currentXP < 300) {
-      currentLevel = 1;
-      nextLevelXP = 300;
-    } else if (currentXP < 800) {
-      currentLevel = 2;
-      nextLevelXP = 800;
-    } else if (currentXP < 1500) {
-      currentLevel = 3;
-      nextLevelXP = 1500;
-    } else if (currentXP < 2500) {
-      currentLevel = 4;
-      nextLevelXP = 2500;
-    } else {
-      currentLevel = 5;
-      nextLevelXP = 5000;
+      }, SetOptions(merge: true));
     }
   }
 }

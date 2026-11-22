@@ -12,20 +12,29 @@ class GabineteScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Fundo claro coeso
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Elementos moleculares de fundo em Azul Profitecla (muito subtis)
-          Positioned(top: -60, right: -60, child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.05), 220)),
-          Positioned(bottom: 50, left: -70, child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.08), 260)),
-          
+          Positioned(
+            top: -60,
+            right: -60,
+            child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.05), 220),
+          ),
+          Positioned(
+            bottom: 50,
+            left: -70,
+            child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.08), 260),
+          ),
           SafeArea(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // CABEÇALHO DO GABINETE
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 12.0,
+                  ),
                   child: Row(
                     children: [
                       InkWell(
@@ -36,59 +45,75 @@ class GabineteScreen extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: kProfiteclaBlue.withValues(alpha: 0.08),
                             shape: BoxShape.circle,
-                            border: Border.all(color: kProfiteclaBlue.withValues(alpha: 0.15)),
+                            border: Border.all(
+                              color: kProfiteclaBlue.withValues(alpha: 0.15),
+                            ),
                           ),
-                          child: const Icon(Icons.arrow_back_rounded, color: kProfiteclaBlue, size: 20),
+                          child: const Icon(
+                            Icons.arrow_back_rounded,
+                            color: kProfiteclaBlue,
+                            size: 20,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                
+
                 // CONTEÚDO (CRÉDITOS E PARCERIAS)
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24.0,
+                      vertical: 8.0,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
                           'Gabinete',
-                          style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: kTextDark, letterSpacing: -0.8),
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            color: kTextDark,
+                            letterSpacing: -0.8,
+                          ),
                         ),
-                        // Removido o subtítulo "Equipa e Parcerias..."
                         const SizedBox(height: 32),
-                        
+
                         // BLOCO 1: Autoras do Projeto
                         _buildCreditCard(
-                          title: 'Autoras do Projeto (PAP)', 
-                          names: 'Ana Rodrigues, Catarina Almeida, Mafalda Cruz e Duda Fernandes',
-                          role: 'Alunas do Curso Técnico Profissional de Farmácia', 
-                          icon: Icons.science_rounded, 
+                          title: 'Autoras do Projeto',
+                          names:
+                              'Ana Rodrigues, Catarina Almeida, Mafalda Cruz e Duda Fernandes',
+                          role:
+                              'Alunas do Curso Técnico Profissional de Farmácia',
+                          icon: Icons.science_rounded,
                           highlightColor: kProfiteclaBlue,
                         ),
                         const SizedBox(height: 16),
-                        
+
                         // BLOCO 2: SPO
                         _buildCreditCard(
-                          title: 'Parceria SPO', 
+                          title: 'Parceria SPO',
                           names: 'Cláudia Silva e Filipa Miranda',
-                          role: 'Serviço de Psicologia e Orientação (Profitecla)', 
-                          icon: Icons.psychology_rounded, 
-                          highlightColor: const Color(0xFF00A86B), // Verde Esmeralda
+                          role: 'Serviço de Psicologia e Orientação',
+                          icon: Icons.psychology_rounded,
+                          highlightColor: const Color(0xFF00A86B),
                         ),
                         const SizedBox(height: 16),
-                        
-                        // BLOCO 3: PoweredByCTE
+
+                        // BLOCO 3: CTE
                         _buildCreditCard(
-                          title: 'Parceria PoweredByCTE', 
+                          title: 'Parceria CTE',
                           names: 'Luís Bastos e Narciso Monteiro',
-                          role: 'Consultoria Tecnológica e Estruturação Digital', 
-                          icon: Icons.developer_mode_rounded, 
-                          highlightColor: const Color(0xFFFF9800), // Laranja
+                          role:
+                              'Desenvolvimento da aplicação e materiais promocionais',
+                          icon: Icons.developer_mode_rounded,
+                          highlightColor: const Color(0xFFFF9800),
                         ),
-                        
+
                         const SizedBox(height: 40),
                       ],
                     ),
@@ -114,8 +139,12 @@ class GabineteScreen extends StatelessWidget {
         ),
         child: Center(
           child: Container(
-            width: size / 2, height: size / 2,
-            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: color, width: 4)),
+            width: size / 2,
+            height: size / 2,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 4),
+            ),
           ),
         ),
       ),
@@ -123,11 +152,11 @@ class GabineteScreen extends StatelessWidget {
   }
 
   Widget _buildCreditCard({
-    required String title, 
-    required String names, 
-    required String role, 
-    required IconData icon, 
-    required Color highlightColor
+    required String title,
+    required String names,
+    required String role,
+    required IconData icon,
+    required Color highlightColor,
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -144,14 +173,16 @@ class GabineteScreen extends StatelessWidget {
         ],
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: highlightColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: highlightColor.withValues(alpha: 0.2)),
+              border: Border.all(
+                color: highlightColor.withValues(alpha: 0.2),
+              ),
             ),
             child: Icon(icon, color: highlightColor, size: 24),
           ),
@@ -161,32 +192,32 @@ class GabineteScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title.toUpperCase(), 
+                  title.toUpperCase(),
                   style: const TextStyle(
-                    fontWeight: FontWeight.w900, 
-                    fontSize: 10, 
-                    color: kTextMuted, 
-                    letterSpacing: 1.2
+                    fontWeight: FontWeight.w900,
+                    fontSize: 10,
+                    color: kTextMuted,
+                    letterSpacing: 1.2,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  names, 
+                  names,
                   style: const TextStyle(
-                    color: kTextDark, 
-                    fontWeight: FontWeight.w800, 
-                    fontSize: 14, 
-                    height: 1.3
+                    color: kTextDark,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    height: 1.3,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  role, 
+                  role,
                   style: const TextStyle(
-                    color: kTextMuted, 
-                    fontStyle: FontStyle.italic, 
-                    fontSize: 12, 
-                    height: 1.4
+                    color: kTextMuted,
+                    fontStyle: FontStyle.italic,
+                    fontSize: 12,
+                    height: 1.4,
                   ),
                 ),
               ],
