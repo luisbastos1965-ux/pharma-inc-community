@@ -14,7 +14,7 @@ class PraticaScreen extends StatefulWidget {
 }
 
 class _PraticaScreenState extends State<PraticaScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   static const Color _profiteclaBlue = Color(0xFF008AD8);
   static const Color _lightBlueTint = Color(0xFFE1F0FA);
   static const Duration _startTimeout = Duration(seconds: 15);
@@ -29,9 +29,19 @@ class _PraticaScreenState extends State<PraticaScreen>
   String? _localError;
   String _diagnosticLog = '';
 
+  /// true enquanto o CasoClinicoScreen está aberto por cima deste ecrã.
+  bool _navigating = false;
+
+  /// true se a câmara foi parada porque a app saiu de primeiro plano.
+  bool _stoppedByLifecycle = false;
+
+  /// Fila: todas as operações de start/stop da câmara correm uma a uma, por ordem.
+  Future<void> _cameraQueue = Future<void>.value();
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scannerController = MobileScannerController(
       autoStart: false,
       detectionSpeed: DetectionSpeed.noDuplicates,
@@ -47,12 +57,13 @@ class _PraticaScreenState extends State<PraticaScreen>
     )..repeat(reverse: true);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _startCamera();
+      if (mounted) unawaited(_startCamera());
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _resumeTimer?.cancel();
     _startWatchdog?.cancel();
     _scannerController.removeListener(_onScannerStateChanged);
@@ -95,8 +106,87 @@ class _PraticaScreenState extends State<PraticaScreen>
     });
   }
 
-  Future<void> _startCamera({bool isRetry = false}) async {
-    if (_busy) return;
+  // ---------------------------------------------------------------------------
+  // CICLO DE VIDA DA APP (Android / Flutter Web)
+  // ---------------------------------------------------------------------------
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!mounted) return;
+
+    if (state == AppLifecycleState.resumed) {
+      // Com o CasoClinicoScreen aberto, a câmara reinicia quando se regressar.
+      if (_navigating) return;
+      if (_stoppedByLifecycle) {
+        unawaited(_startCamera(hardRestart: true));
+      }
+      return;
+    }
+
+    // inactive / hidden / paused: liberta a câmara.
+    if (_navigating) return; // já está parada
+    _stoppedByLifecycle = true;
+    _isScanning = false;
+    _resumeTimer?.cancel();
+    unawaited(_stopCamera());
+  }
+
+  // ---------------------------------------------------------------------------
+  // CÂMARA: operações serializadas
+  // ---------------------------------------------------------------------------
+  Future<void> _enqueueCamera(Future<void> Function() op) {
+    final Future<void> next = _cameraQueue.then((_) => op());
+    _cameraQueue = next.catchError((Object e) {
+      debugPrint('Fila da câmara: $e');
+    });
+    return next;
+  }
+
+  Future<void> _stopCamera() => _enqueueCamera(() async {
+        try {
+          await _scannerController.stop();
+        } catch (e) {
+          debugPrint('Erro ao parar câmara: $e');
+        }
+      });
+
+  Future<void> _startCamera({bool hardRestart = false}) =>
+      _enqueueCamera(() => _startCameraNow(hardRestart: hardRestart));
+
+  void _appendLog(String message) {
+    if (!mounted) return;
+    setState(() => _diagnosticLog += message);
+  }
+
+  Future<bool> _waitUntilInitialized({
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    final Stopwatch sw = Stopwatch()..start();
+    while (sw.elapsed < timeout) {
+      if (!mounted) return false;
+      final s = _scannerController.value;
+      if (s.error != null) return false;
+      if (s.isInitialized) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    return false;
+  }
+
+  /// Arranca (ou rearma) a câmara. Se a primeira tentativa não deixar o scanner
+  /// inicializado, repete uma vez com paragem completa + pausa (reinício a frio).
+  Future<void> _startCameraNow({required bool hardRestart}) async {
+    if (!mounted) return;
+    final c = _scannerController;
+
+    // Já está a funcionar: só repõe a leitura.
+    if (!hardRestart &&
+        c.value.isInitialized &&
+        c.value.isRunning &&
+        c.value.error == null) {
+      _stoppedByLifecycle = false;
+      _localError = null;
+      _isScanning = true;
+      return;
+    }
 
     setState(() {
       _busy = true;
@@ -106,47 +196,53 @@ class _PraticaScreenState extends State<PraticaScreen>
 
     try {
       if (kIsWeb && !_isSecureContext) {
-        throw Exception('Contexto Inseguro. Requer HTTPS.');
+        setState(() => _localError = 'Contexto inseguro. A câmara requer HTTPS.');
+        return;
       }
 
-      if (isRetry) {
-        await _scannerController.stop();
-        await Future<void>.delayed(const Duration(milliseconds: 400));
+      bool ok = false;
+      for (int attempt = 0; attempt < 2 && !ok && mounted; attempt++) {
+        if (hardRestart || attempt > 0) {
+          try {
+            await c.stop();
+          } catch (_) {}
+          await Future<void>.delayed(const Duration(milliseconds: 400));
+          if (!mounted) return;
+        }
+
+        _armWatchdog();
+        try {
+          await c.start().timeout(_startTimeout);
+        } on TimeoutException {
+          _appendLog('[Aviso] Tentativa ${attempt + 1}: start() expirou.\n');
+        } on MobileScannerException catch (e) {
+          _appendLog(
+            '[Aviso] Tentativa ${attempt + 1}: ${e.errorCode.name}.\n',
+          );
+        } catch (e) {
+          _appendLog('[Aviso] Tentativa ${attempt + 1}: $e\n');
+        }
+
+        if (!mounted) return;
+        // Permissão negada / não suportado: não insistir.
+        if (c.value.error != null) break;
+        ok = await _waitUntilInitialized();
       }
 
-      _armWatchdog();
-      await _scannerController.start().timeout(_startTimeout);
-    } on TimeoutException {
-      if (mounted) {
-        setState(
-          () => _localError =
-              'O pedido expirou. A câmara não respondeu a tempo.',
-        );
-      }
-    } on MobileScannerException catch (_) {
-      if (mounted) setState(() => _localError = 'Erro Nativo da Câmara.');
-    } catch (_) {
-      if (mounted) {
-        setState(() => _localError = 'Erro Desconhecido ao arrancar.');
+      if (!mounted) return;
+
+      if (ok) {
+        _startWatchdog?.cancel();
+        _stoppedByLifecycle = false;
+        _localError = null;
+        _isScanning = true;
+      } else if (c.value.error == null) {
+        setState(() {
+          _localError = 'Não foi possível (re)iniciar a câmara. Tenta novamente.';
+        });
       }
     } finally {
       if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _pauseScanner() async {
-    try {
-      await _scannerController.pause();
-    } catch (e) {
-      debugPrint('Erro ao pausar: $e');
-    }
-  }
-
-  Future<void> _resumeScanner() async {
-    try {
-      await _scannerController.start();
-    } catch (e) {
-      debugPrint('Erro ao retomar: $e');
     }
   }
 
@@ -155,45 +251,51 @@ class _PraticaScreenState extends State<PraticaScreen>
 
     String? code;
     for (final barcode in capture.barcodes) {
-      if (barcode.rawValue != null && barcode.rawValue!.isNotEmpty) {
-        code = barcode.rawValue;
+      final String? raw = barcode.rawValue;
+      if (raw != null && raw.isNotEmpty) {
+        code = raw;
         break;
       }
     }
     if (code == null) return;
+    final String scanned = code;
 
+    // Bloqueia novas leituras de imediato (antes de qualquer await).
     _isScanning = false;
-    await _pauseScanner();
+    _resumeTimer?.cancel();
+    await _stopCamera();
     if (!mounted) return;
 
-    final Uri? uri = Uri.tryParse(code);
+    final Uri? uri = Uri.tryParse(scanned);
     final bool isHttpUrl =
         uri != null && (uri.scheme == 'http' || uri.scheme == 'https');
 
     if (isHttpUrl) {
       await _openUrl(uri);
 
-      _resumeTimer?.cancel();
-      _resumeTimer = Timer(const Duration(seconds: 3), () async {
-        if (!mounted) return;
-        await _resumeScanner();
-        if (mounted) _isScanning = true;
+      // Se a app foi para segundo plano, o ciclo de vida reinicia a câmara ao
+      // regressar; este temporizador cobre o caso em que isso não acontece.
+      _resumeTimer = Timer(const Duration(seconds: 3), () {
+        if (!mounted || _stoppedByLifecycle || _navigating) return;
+        unawaited(_startCamera());
       });
-    } else {
-      if (!mounted) return;
+      return;
+    }
 
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => CasoClinicoScreen(qrData: code!),
+    _navigating = true;
+    try {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => CasoClinicoScreen(qrData: scanned),
         ),
       );
-
-      if (mounted) {
-        await _resumeScanner();
-        setState(() => _isScanning = true);
-      }
+    } finally {
+      _navigating = false;
     }
+
+    if (!mounted) return;
+    // Regresso (botão voltar, X ou "Voltar à leitura de QR"): rearma o scanner.
+    await _startCamera(hardRestart: _stoppedByLifecycle);
   }
 
   Future<void> _openUrl(Uri url) async {
@@ -278,7 +380,7 @@ class _PraticaScreenState extends State<PraticaScreen>
         message: info.message,
         buttonLabel: 'TENTAR NOVAMENTE',
         footer: footer,
-        onRetry: () => _startCamera(isRetry: true),
+        onRetry: () => _startCamera(hardRestart: true),
       );
     }
 

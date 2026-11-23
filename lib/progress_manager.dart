@@ -2,6 +2,25 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+/// Resultado do registo de um caso clínico jogado.
+enum RegistoCaso {
+  /// Primeira vez que o caso é jogado: ficou registado (e os mg, se houver, creditados).
+  primeiraVez,
+
+  /// O caso já constava como jogado: nada foi alterado.
+  jaJogado,
+
+  /// Não foi possível confirmar no servidor: nada foi registado nem creditado.
+  erro,
+}
+
+class _ResultadoTx {
+  final bool primeiraVez;
+  final int xp;
+  final Set<String> jogados;
+  const _ResultadoTx(this.primeiraVez, this.xp, this.jogados);
+}
+
 class ProgressManager {
   static final ProgressManager _instance = ProgressManager._internal();
   factory ProgressManager() => _instance;
@@ -11,11 +30,24 @@ class ProgressManager {
   int selectedAudience = 11; // 1..10 cursos Profitecla | 11: Professores
   String playerName = 'Utilizador';
 
+  /// UID a que pertence o estado em memória (evita misturar contas no mesmo dispositivo).
+  String? _uidAtual;
+
   /// IDs dos casos clínicos já jogados (um só jogo por caso, por conta).
   /// Persistido em users/{uid}.casosJogados (array de strings).
   final Set<String> casosJogados = <String>{};
 
   bool jaJogou(String casoId) => casosJogados.contains(casoId);
+
+  /// Se mudou o utilizador autenticado, descarta o estado em memória da conta anterior.
+  void _sincronizarUtilizador(String uid) {
+    if (_uidAtual == uid) return;
+    _uidAtual = uid;
+    currentXP = 0;
+    selectedAudience = 11;
+    playerName = 'Utilizador';
+    casosJogados.clear();
+  }
 
   static Set<String> _lerJogados(Map<String, dynamic>? data) {
     final raw = data?['casosJogados'];
@@ -58,6 +90,7 @@ class ProgressManager {
   Future<void> loadUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+    _sincronizarUtilizador(user.uid);
 
     try {
       final doc = await FirebaseFirestore.instance
@@ -85,6 +118,7 @@ class ProgressManager {
   Future<void> refreshCasosJogados() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+    _sincronizarUtilizador(user.uid);
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
@@ -96,49 +130,51 @@ class ProgressManager {
     }
   }
 
-  /// Regista, de forma atómica (transação), que o caso foi jogado e credita os mg.
-  /// Devolve true se este foi o primeiro jogo do caso (os mg foram creditados) e
-  /// false se o caso já constava como jogado (não credita nada).
-  Future<bool> registarCasoJogado(String casoId, {int xpGanho = 0}) async {
-    if (casosJogados.contains(casoId)) return false;
-
+  /// Regista, de forma atómica (transação no servidor), que o caso foi jogado e
+  /// credita os mg. Regras:
+  /// - [RegistoCaso.primeiraVez]: caso registado e mg creditados (só aqui);
+  /// - [RegistoCaso.jaJogado]: já constava como jogado, nada é creditado;
+  /// - [RegistoCaso.erro]: sem confirmação do servidor, NADA é alterado em memória
+  ///   (nem casos nem mg), para que o jogador possa tentar de novo.
+  Future<RegistoCaso> registarCasoJogado(String casoId, {int xpGanho = 0}) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      casosJogados.add(casoId);
-      if (xpGanho > 0) currentXP += xpGanho;
-      return true;
-    }
+    if (user == null) return RegistoCaso.erro;
+    _sincronizarUtilizador(user.uid);
 
+    if (casosJogados.contains(casoId)) return RegistoCaso.jaJogado;
+
+    final int mg = xpGanho < 0 ? 0 : xpGanho;
     final ref = FirebaseFirestore.instance.collection('users').doc(user.uid);
-    int? xpFinal;
+
     try {
-      final bool primeiraVez =
-          await FirebaseFirestore.instance.runTransaction<bool>((tx) async {
+      final _ResultadoTx r =
+          await FirebaseFirestore.instance.runTransaction<_ResultadoTx>((tx) async {
         final snap = await tx.get(ref);
         final data = snap.data();
         final jogados = _lerJogados(data);
+        final int xpServidor = ((data?['xp'] ?? 0) as num).toInt();
+
         if (jogados.contains(casoId)) {
-          casosJogados.addAll(jogados);
-          return false;
+          return _ResultadoTx(false, xpServidor, jogados);
         }
-        final int xpAtual = ((data?['xp'] ?? currentXP) as num).toInt();
-        final int novoXp = xpAtual + xpGanho;
-        xpFinal = novoXp;
+
+        final int novoXp = xpServidor + mg;
         tx.set(ref, {
           'xp': novoXp,
           'casosJogados': FieldValue.arrayUnion([casoId]),
         }, SetOptions(merge: true));
-        return true;
+        return _ResultadoTx(true, novoXp, jogados);
       });
 
-      casosJogados.add(casoId);
-      if (primeiraVez) currentXP = xpFinal ?? (currentXP + xpGanho);
-      return primeiraVez;
+      // Só depois de o servidor confirmar é que o estado local é atualizado.
+      casosJogados
+        ..addAll(r.jogados)
+        ..add(casoId);
+      currentXP = r.xp;
+      return r.primeiraVez ? RegistoCaso.primeiraVez : RegistoCaso.jaJogado;
     } catch (e) {
-      // Sem confirmação do servidor: bloqueia o caso nesta sessão para não repetir.
-      casosJogados.add(casoId);
-      if (xpGanho > 0) currentXP += xpGanho;
-      rethrow;
+      debugPrint('Erro ao registar caso jogado ($casoId): $e');
+      return RegistoCaso.erro;
     }
   }
 

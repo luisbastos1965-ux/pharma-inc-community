@@ -38,6 +38,21 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
     11: 'Professores',
   };
 
+  // Cor de cada curso (usada no padrão de fundo do ecrã de resolução)
+  static const Map<int, Color> _coresCursos = {
+    1: Color(0xFF1A365D), // Gestão e Administração
+    2: Color(0xFF1E5631), // Desenvolvimento de Software
+    3: Color(0xFFC84B31), // Comunicação e Marketing
+    4: Color(0xFF4A235A), // Multimédia
+    5: Color(0xFF800000), // Cozinha e Restauração
+    6: Color(0xFF005B96), // Turismo
+    7: Color(0xFF00695C), // Auxiliar de Saúde
+    8: Color(0xFF513E7C), // Auxiliar de Farmácia
+    9: Color(0xFF2C3E50), // Secretariado Executivo
+    10: Color(0xFF880E4F), // Comunicação e Serviço Digital
+    11: Color(0xFF4E342E), // Professores
+  };
+
   // Cache em memória por curso (1..11) para evitar leituras repetidas no Firestore
   static final Map<int, Map<String, dynamic>> _courseCache = {};
 
@@ -237,7 +252,9 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
         final String texto = rawOpcoes[i].toString().trim();
         final bool correta = respostaCorreta.isNotEmpty &&
             (chave == respostaCorreta ||
-                texto.toUpperCase().startsWith(respostaCorreta));
+                texto.toUpperCase() == respostaCorreta ||
+                RegExp('^${RegExp.escape(respostaCorreta)}\\s*[\\)\\.\\-:]')
+                    .hasMatch(texto.toUpperCase()));
         opcoesList.add({
           'chaveOriginal': chave,
           'texto': texto,
@@ -256,6 +273,11 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
       _hasAnswered = false;
     });
   }
+
+  /// Cor do curso atual (ou azul Profitecla se o QR ainda não foi interpretado).
+  Color get _corCurso =>
+      _coresCursos[_audienceId ?? _parseAudienceFromQr(widget.qrData)] ??
+      kProfiteclaBlue;
 
   Map<String, dynamic>? get _casoAtual {
     if (_casosDoCurso.isEmpty) return null;
@@ -289,18 +311,38 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
       _isSavingPoints = true;
     });
 
-    // Regista o caso como jogado (certo ou errado) e credita os mg só à 1.ª vez.
-    bool primeiraVez = true;
-    try {
-      primeiraVez = await ProgressManager()
-          .registarCasoJogado(casoId, xpGanho: isCorrect ? mg : 0);
-    } catch (e) {
-      debugPrint('Erro ao registar caso jogado: $e');
-    }
+    // Regista o caso como jogado (certo ou errado) e credita os mg só à 1.ª vez
+    // e só se a resposta estiver certa. O resultado só é revelado depois de o
+    // servidor confirmar o registo.
+    final RegistoCaso registo = await ProgressManager()
+        .registarCasoJogado(casoId, xpGanho: isCorrect ? mg : 0);
 
     if (!mounted) return;
+
+    if (registo == RegistoCaso.erro) {
+      setState(() {
+        _hasAnswered = false;
+        _isSavingPoints = false;
+      });
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Sem ligação ao servidor. A resposta não foi registada: tenta confirmar novamente.',
+            ),
+            backgroundColor: kKo,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      return;
+    }
+
     setState(() => _isSavingPoints = false);
-    _showResultBottomSheet(isCorrect, primeiraVez: primeiraVez);
+    _showResultBottomSheet(
+      isCorrect,
+      primeiraVez: registo == RegistoCaso.primeiraVez,
+    );
   }
 
   void _showResultBottomSheet(bool isCorrect, {bool primeiraVez = true}) {
@@ -525,7 +567,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
               top: -60,
               right: -60,
               child: _buildMolecule(
-                kProfiteclaBlue.withValues(alpha: 0.05),
+                _corCurso.withValues(alpha: 0.05),
                 220,
               ),
             ),
@@ -533,7 +575,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
               bottom: 60,
               left: -70,
               child: _buildMolecule(
-                kProfiteclaBlue.withValues(alpha: 0.08),
+                _corCurso.withValues(alpha: 0.08),
                 260,
               ),
             ),
