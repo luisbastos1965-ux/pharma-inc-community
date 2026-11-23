@@ -15,7 +15,16 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
+
+  /// Dígitos introduzidos pelo utilizador, SEM o "0" inicial (que é fixo no visor).
+  /// - Docentes: 2 a 4 dígitos (3 a 5 com o "0")
+  /// - Alunos: 6 dígitos (7 com o "0")
   String _numeroAtual = '';
+
+  static const int _maxDigitos = 6;
+  static const int _digitosAluno = 6;
+  static const int _minDigitosDocente = 2;
+  static const int _maxDigitosDocente = 4;
 
   // Cores da Simbiose (Profitecla + Saúde)
   final Color _azulProfitecla = const Color(0xFF008AD8);
@@ -29,8 +38,26 @@ class _AuthScreenState extends State<AuthScreen> {
     4, 2, 1, 3,
   ];
 
+  // ---------------------------------------------------------------------------
+  // Regras do número de identificação
+  // ---------------------------------------------------------------------------
+
+  bool get _isAluno => _numeroAtual.length == _digitosAluno;
+
+  bool get _isProfessor =>
+      _numeroAtual.length >= _minDigitosDocente &&
+      _numeroAtual.length <= _maxDigitosDocente;
+
+  /// Número completo, tal como consta no cartão (com o "0" inicial). Só para apresentação.
+  String get _numeroCompleto => '0$_numeroAtual';
+
+  // ---------------------------------------------------------------------------
+  // Teclado
+  // ---------------------------------------------------------------------------
+
   void _onDigitTap(String digit) {
-    if (_numeroAtual.length >= 7) return;
+    if (_isLoading) return;
+    if (_numeroAtual.length >= _maxDigitos) return;
     HapticFeedback.lightImpact();
     setState(() {
       _numeroAtual += digit;
@@ -38,6 +65,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _onBackspace() {
+    if (_isLoading) return;
     if (_numeroAtual.isEmpty) return;
     HapticFeedback.selectionClick();
     setState(() {
@@ -46,6 +74,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _onClear() {
+    if (_isLoading) return;
     if (_numeroAtual.isEmpty) return;
     HapticFeedback.mediumImpact();
     setState(() {
@@ -85,21 +114,31 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Login
+  // ---------------------------------------------------------------------------
+
   Future<void> _processLogin() async {
-    final numeroStr = _numeroAtual.trim();
+    if (_isLoading) return;
+
+    // numeroStr = número SEM o "0" inicial. É o que está guardado na base de dados
+    // (studentId e sufixo do documento "user_<numeroStr>").
+    final String numeroStr = _numeroAtual.trim();
 
     if (numeroStr.isEmpty) {
       _showError('Marca o teu número no painel.');
       return;
     }
 
-    final bool isAluno = numeroStr.length == 7;
-    final bool isProfessor = numeroStr.length >= 3 && numeroStr.length <= 5;
+    final bool isAluno = _isAluno;
+    final bool isProfessor = _isProfessor;
 
     if (!isAluno && !isProfessor) {
       _showError('Número de identificação incompleto.');
       return;
     }
+
+    final String numeroCompleto = _numeroCompleto;
 
     setState(() => _isLoading = true);
 
@@ -111,30 +150,72 @@ class _AuthScreenState extends State<AuthScreen> {
       }
 
       if (user != null) {
-        final preloadedDocId = 'user_$numeroStr';
-        final preloadedRef = FirebaseFirestore.instance
-            .collection('users')
-            .doc(preloadedDocId);
-        final preloadedSnap = await preloadedRef.get();
+        final firestore = FirebaseFirestore.instance;
+        final users = firestore.collection('users');
 
-        final sessionRef = FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid);
+        // Documento pré-carregado (pauta): user_<numero sem o "0">
+        String preloadedDocId = 'user_$numeroStr';
+        DocumentReference<Map<String, dynamic>> preloadedRef =
+            users.doc(preloadedDocId);
+        DocumentSnapshot<Map<String, dynamic>> preloadedSnap =
+            await preloadedRef.get();
+
+        // Compatibilidade: registos antigos criados com o "0" no ID (user_0<numero>).
+        // Evita duplicar o mesmo utilizador com e sem "0".
+        if (!preloadedSnap.exists) {
+          final legacyId = 'user_0$numeroStr';
+          final legacyRef = users.doc(legacyId);
+          final legacySnap = await legacyRef.get();
+          if (legacySnap.exists) {
+            preloadedDocId = legacyId;
+            preloadedRef = legacyRef;
+            preloadedSnap = legacySnap;
+          }
+        }
+
+        final sessionRef = users.doc(user.uid);
+        final sessionSnap = await sessionRef.get();
+        final sessionData = sessionSnap.data();
+
+        // A sessão já está ligada a este mesmo número? (mesmo dispositivo/conta anónima)
+        final bool jaLigado = sessionSnap.exists &&
+            sessionData != null &&
+            sessionData['linkedDocId'] == preloadedDocId;
+
+        String displayName;
 
         if (preloadedSnap.exists) {
           final data = preloadedSnap.data()!;
-          final displayName = data['name'] ?? 'Utente $numeroStr';
+          displayName = (data['name'] ?? 'Utente $numeroCompleto').toString();
 
-          await sessionRef.set({
-            ...data,
-            'linkedDocId': preloadedDocId,
-            'lastLogin': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
+          if (jaLigado) {
+            // Mantém o progresso da sessão (xp, casosJogados, audience, ...).
+            // Só atualiza identidade e último acesso, para não repor o xp a 0.
+            await sessionRef.set({
+              'name': data['name'] ?? sessionData['name'] ?? displayName,
+              if (data['fullName'] != null) 'fullName': data['fullName'],
+              if (data['course'] != null) 'course': data['course'],
+              if (data['class'] != null) 'class': data['class'],
+              'studentId': numeroStr,
+              'linkedDocId': preloadedDocId,
+              'lastLogin': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+          } else {
+            // Sessão nova ou que estava ligada a outro número: substitui o documento
+            // por completo (sem merge) para não misturar progresso de contas diferentes.
+            await sessionRef.set({
+              ...data,
+              'studentId': numeroStr,
+              'linkedDocId': preloadedDocId,
+              'lastLogin': FieldValue.serverTimestamp(),
+            });
+          }
 
           await user.updateDisplayName(displayName);
         } else if (isProfessor) {
-          final profName = 'Prof. $numeroStr';
-          final profData = {
+          // Docente ainda não registado: cria o registo (ID sem o "0", como os alunos).
+          final profName = 'Prof. $numeroCompleto';
+          final profData = <String, dynamic>{
             'name': profName,
             'fullName': profName,
             'studentId': numeroStr,
@@ -150,15 +231,26 @@ class _AuthScreenState extends State<AuthScreen> {
           };
 
           await preloadedRef.set(profData);
-          await sessionRef.set({
-            ...profData,
-            'linkedDocId': preloadedDocId,
-          }, SetOptions(merge: true));
+
+          if (jaLigado) {
+            await sessionRef.set({
+              ...profData,
+              'xp': sessionData['xp'] ?? 0,
+              'linkedDocId': preloadedDocId,
+              'lastLogin': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+          } else {
+            await sessionRef.set({
+              ...profData,
+              'linkedDocId': preloadedDocId,
+              'lastLogin': FieldValue.serverTimestamp(),
+            });
+          }
 
           await user.updateDisplayName(profName);
         } else {
           _showError(
-            'Número ($numeroStr) não encontrado na pauta ativa.',
+            'Número ($numeroCompleto) não encontrado na pauta ativa.',
           );
           if (mounted) setState(() => _isLoading = false);
           return;
@@ -191,16 +283,65 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   String? _getDetectedRoleBadge() {
-    if (_numeroAtual.length == 7) return 'ALUNO';
-    if (_numeroAtual.length >= 3 && _numeroAtual.length <= 5) return 'DOCENTE';
+    if (_isAluno) return 'ALUNO';
+    if (_isProfessor) return 'DOCENTE';
     return null;
   }
+
+  /// Visor: "0" fixo à esquerda + dígitos introduzidos (ou texto de ajuda se vazio).
+  Widget _buildVisorTexto() {
+  final bool vazio = _numeroAtual.isEmpty;
+
+  return FittedBox(
+    fit: BoxFit.scaleDown,
+    alignment: Alignment.centerLeft,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // "0" permanente
+        Text(
+          '0',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 20,
+            height: 1.0,
+            letterSpacing: 2.0,
+            color: _azulProfitecla,
+          ),
+        ),
+        const SizedBox(width: 8),
+        if (vazio)
+          Text(
+            'N.º da Escola',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              height: 1.0,
+              color: Colors.grey.shade500,
+            ),
+          )
+        else
+          Text(
+            _numeroAtual.split('').join(' '),
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 20,
+              height: 1.0,
+              letterSpacing: 2.0,
+              color: _cinzaTexto,
+            ),
+          ),
+      ],
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
     final roleBadge = _getDetectedRoleBadge();
     final int activeBarsCount =
-        ((_numeroAtual.length / 7) * _barcodePattern.length).round();
+        ((_numeroAtual.length / _maxDigitos) * _barcodePattern.length).round();
 
     return Scaffold(
       backgroundColor: _azulClinico,
@@ -342,29 +483,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                           size: 22,
                                         ),
                                         const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            _numeroAtual.isEmpty
-                                                ? 'N.º de Identificação'
-                                                : _numeroAtual
-                                                    .split('')
-                                                    .join(' '),
-                                            style: TextStyle(
-                                              fontWeight: _numeroAtual.isEmpty
-                                                  ? FontWeight.w600
-                                                  : FontWeight.w900,
-                                              fontSize: _numeroAtual.isEmpty
-                                                  ? 14
-                                                  : 20,
-                                              letterSpacing: _numeroAtual.isEmpty
-                                                  ? 0
-                                                  : 2.0,
-                                              color: _numeroAtual.isEmpty
-                                                  ? Colors.grey.shade500
-                                                  : _cinzaTexto,
-                                            ),
-                                          ),
-                                        ),
+                                        Expanded(child: _buildVisorTexto()),
                                         if (roleBadge != null)
                                           AnimatedContainer(
                                             duration: const Duration(

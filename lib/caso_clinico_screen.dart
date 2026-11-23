@@ -17,8 +17,7 @@ class CasoClinicoScreen extends StatefulWidget {
 
 class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
   // Identidade visual oficial Light Mode
-  static const Color kProfiteclaBlue = Color(0xFF008AD8);
-  static const Color kProfiteclaDarkBlue = Color(0xFF005C9E);
+  static const Color kProfiteclaBlue = Color(0xFF008AD8); // cor por omissão
   static const Color kTextDark = Color(0xFF333333);
   static const Color kTextMuted = Color(0xFF757575);
   static const Color kOk = Color(0xFF00A86B);
@@ -279,6 +278,10 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
       _coresCursos[_audienceId ?? _parseAudienceFromQr(widget.qrData)] ??
       kProfiteclaBlue;
 
+  /// Variante mais escura da cor do curso (títulos de destaque).
+  Color get _corCursoEscura =>
+      Color.lerp(_corCurso, Colors.black, 0.25) ?? _corCurso;
+
   Map<String, dynamic>? get _casoAtual {
     if (_casosDoCurso.isEmpty) return null;
     return _casosDoCurso[_casoIndex];
@@ -415,25 +418,25 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: kProfiteclaBlue.withValues(alpha: 0.1),
+                      color: _corCurso.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: kProfiteclaBlue.withValues(alpha: 0.3),
+                        color: _corCurso.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.medication_rounded,
                           size: 16,
-                          color: kProfiteclaBlue,
+                          color: _corCurso,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           '+ $_mgRecompensa MG NA ESCALA',
-                          style: const TextStyle(
-                            color: kProfiteclaBlue,
+                          style: TextStyle(
+                            color: _corCurso,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 0.8,
                             fontSize: 12.5,
@@ -457,11 +460,11 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                 ],
                 if (!temMaisCasos) ...[
                   const SizedBox(height: 14),
-                  const Text(
+                  Text(
                     'Concluíste todos os casos deste curso!',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: kProfiteclaDarkBlue,
+                      color: _corCursoEscura,
                       fontSize: 13.5,
                       fontWeight: FontWeight.w800,
                     ),
@@ -486,7 +489,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: kProfiteclaBlue,
+                        backgroundColor: _corCurso,
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(vertical: 15),
@@ -618,15 +621,15 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: kProfiteclaBlue.withValues(alpha: 0.08),
+                color: _corCurso.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: kProfiteclaBlue.withValues(alpha: 0.18),
+                  color: _corCurso.withValues(alpha: 0.18),
                 ),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.close_rounded,
-                color: kProfiteclaBlue,
+                color: _corCurso,
                 size: 20,
               ),
             ),
@@ -636,19 +639,19 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: kProfiteclaBlue.withValues(alpha: 0.1),
+                color: _corCurso.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: kProfiteclaBlue.withValues(alpha: 0.25),
+                  color: _corCurso.withValues(alpha: 0.25),
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.school_rounded,
                     size: 16,
-                    color: kProfiteclaBlue,
+                    color: _corCurso,
                   ),
                   const SizedBox(width: 6),
                   Flexible(
@@ -656,8 +659,8 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                       badgeText,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: kProfiteclaBlue,
+                      style: TextStyle(
+                        color: _corCurso,
                         fontWeight: FontWeight.w900,
                         fontSize: 11.5,
                         letterSpacing: 0.8,
@@ -679,15 +682,15 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: kProfiteclaBlue.withValues(alpha: 0.08),
+                      color: _corCurso.withValues(alpha: 0.08),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: kProfiteclaBlue.withValues(alpha: 0.18),
+                        color: _corCurso.withValues(alpha: 0.18),
                       ),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.shuffle_rounded,
-                      color: kProfiteclaBlue,
+                      color: _corCurso,
                       size: 20,
                     ),
                   ),
@@ -700,12 +703,12 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(
+      return Center(
         key: ValueKey('loading'),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: kProfiteclaBlue),
+            CircularProgressIndicator(color: _corCurso),
             SizedBox(height: 16),
             Text(
               'A carregar situações do curso...',
@@ -759,7 +762,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: kProfiteclaBlue.withValues(alpha: 0.08),
+                        color: _corCurso.withValues(alpha: 0.08),
                         blurRadius: 18,
                         offset: const Offset(0, 6),
                       ),
@@ -773,12 +776,12 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: kProfiteclaBlue.withValues(alpha: 0.1),
+                              color: _corCurso.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.health_and_safety_rounded,
-                              color: kProfiteclaBlue,
+                              color: _corCurso,
                               size: 22,
                             ),
                           ),
@@ -829,8 +832,8 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                         ),
                         Text(
                           pergunta,
-                          style: const TextStyle(
-                            color: kProfiteclaDarkBlue,
+                          style: TextStyle(
+                            color: _corCursoEscura,
                             fontSize: 15,
                             height: 1.45,
                             fontWeight: FontWeight.w800,
@@ -882,17 +885,17 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: isSelected
-              ? kProfiteclaBlue.withValues(alpha: 0.08)
+              ? _corCurso.withValues(alpha: 0.08)
               : Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: isSelected ? kProfiteclaBlue : const Color(0xFFE0E0E0),
+            color: isSelected ? _corCurso : const Color(0xFFE0E0E0),
             width: isSelected ? 2 : 1.2,
           ),
           boxShadow: [
             BoxShadow(
               color: isSelected
-                  ? kProfiteclaBlue.withValues(alpha: 0.12)
+                  ? _corCurso.withValues(alpha: 0.12)
                   : Colors.black.withValues(alpha: 0.03),
               blurRadius: 12,
               offset: const Offset(0, 4),
@@ -906,8 +909,8 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
               height: 38,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? kProfiteclaBlue
-                    : kProfiteclaBlue.withValues(alpha: 0.1),
+                    ? _corCurso
+                    : _corCurso.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
@@ -916,7 +919,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: 16,
-                    color: isSelected ? Colors.white : kProfiteclaBlue,
+                    color: isSelected ? Colors.white : _corCurso,
                   ),
                 ),
               ),
@@ -969,14 +972,14 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
             ),
           ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: kProfiteclaBlue,
+            backgroundColor: _corCurso,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(30),
             ),
             elevation: 6,
-            shadowColor: kProfiteclaBlue.withValues(alpha: 0.35),
+            shadowColor: _corCurso.withValues(alpha: 0.35),
           ),
         ),
       ),
@@ -1030,7 +1033,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                 style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.8),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: kProfiteclaBlue,
+                backgroundColor: _corCurso,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -1080,7 +1083,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                 style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.8),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: kProfiteclaBlue,
+                backgroundColor: _corCurso,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(
