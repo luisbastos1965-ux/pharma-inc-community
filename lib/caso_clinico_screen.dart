@@ -54,6 +54,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
   bool _isSavingPoints = false;
 
   bool _isLoading = true;
+  bool _todosConcluidos = false;
   String _errorMessage = '';
   int _loadToken = 0;
 
@@ -77,6 +78,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
     final int token = ++_loadToken;
     setState(() {
       _isLoading = true;
+      _todosConcluidos = false;
       _errorMessage = '';
       _selectedOptionIndex = null;
       _hasAnswered = false;
@@ -140,9 +142,30 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
           .toString()
           .trim();
 
-      final int initialIndex = _rng.nextInt(casosLimpos.length);
-
+      // Sincroniza os casos já jogados antes de sortear (um só jogo por caso).
+      await ProgressManager().refreshCasosJogados();
       if (!mounted || token != _loadToken) return;
+
+      final List<int> disponiveis = [
+        for (int i = 0; i < casosLimpos.length; i++)
+          if (!ProgressManager()
+              .jaJogou(_idDoCaso(casosLimpos[i], i, parsedAudience)))
+            i,
+      ];
+
+      if (disponiveis.isEmpty) {
+        setState(() {
+          _audienceId = parsedAudience;
+          _cursoNome = nomeCurso;
+          _casosDoCurso = casosLimpos;
+          _todosConcluidos = true;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final int initialIndex = disponiveis[_rng.nextInt(disponiveis.length)];
+
       setState(() {
         _audienceId = parsedAudience;
         _cursoNome = nomeCurso;
@@ -157,6 +180,31 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  /// ID estável do caso. Usa o campo "id" do JSON (ex.: caso_gea_001); se não
+  /// existir, recorre a curso + posição na lista (frágil se a ordem mudar).
+  String _idDoCaso(Map<String, dynamic> caso, int index, int audience) {
+    final String id = (caso['id'] ?? '').toString().trim();
+    if (id.isNotEmpty) return id;
+    return 'curso_${audience}_$index';
+  }
+
+  /// Índices dos casos deste curso que o jogador ainda não jogou.
+  List<int> _indicesDisponiveis({bool excluirAtual = false}) {
+    final int aud = _audienceId ?? 0;
+    return [
+      for (int i = 0; i < _casosDoCurso.length; i++)
+        if (!(excluirAtual && i == _casoIndex) &&
+            !ProgressManager().jaJogou(_idDoCaso(_casosDoCurso[i], i, aud)))
+          i,
+    ];
+  }
+
+  void _sortearProximoCaso() {
+    final List<int> disponiveis = _indicesDisponiveis(excluirAtual: true);
+    if (disponiveis.isEmpty) return;
+    _prepararCaso(disponiveis[_rng.nextInt(disponiveis.length)]);
   }
 
   void _prepararCaso(int index) {
@@ -198,7 +246,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
       }
     }
 
-    // Baralha as opções para evitar que a resposta certa seja sempre adivinhada por posição/extensão
+    // Baralha as opções para evitar que a resposta certa seja adivinhada por posição/extensão
     opcoesList.shuffle(_rng);
 
     setState(() {
@@ -232,29 +280,33 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
 
     final bool isCorrect =
         _opcoesApresentadas[_selectedOptionIndex!]['correta'] == true;
+    final String casoId =
+        _idDoCaso(_casoAtual!, _casoIndex, _audienceId ?? 0);
+    final int mg = _mgRecompensa;
 
     setState(() {
       _hasAnswered = true;
-      _isSavingPoints = isCorrect;
+      _isSavingPoints = true;
     });
 
-    if (isCorrect && _mgRecompensa > 0) {
-      try {
-        await ProgressManager().addXP(_mgRecompensa);
-      } catch (e) {
-        debugPrint('Erro ao guardar mg no ProgressManager: $e');
-      }
+    // Regista o caso como jogado (certo ou errado) e credita os mg só à 1.ª vez.
+    bool primeiraVez = true;
+    try {
+      primeiraVez = await ProgressManager()
+          .registarCasoJogado(casoId, xpGanho: isCorrect ? mg : 0);
+    } catch (e) {
+      debugPrint('Erro ao registar caso jogado: $e');
     }
 
     if (!mounted) return;
     setState(() => _isSavingPoints = false);
-    _showResultBottomSheet(isCorrect);
+    _showResultBottomSheet(isCorrect, primeiraVez: primeiraVez);
   }
 
-  void _showResultBottomSheet(bool isCorrect) {
+  void _showResultBottomSheet(bool isCorrect, {bool primeiraVez = true}) {
     final Color accent = isCorrect ? kOk : kKo;
     final String feedback = (_casoAtual?['feedback'] ?? '').toString().trim();
-    final bool temMaisCasos = _casosDoCurso.length > 1;
+    final bool temMaisCasos = _indicesDisponiveis(excluirAtual: true).isNotEmpty;
 
     showModalBottomSheet(
       context: context,
@@ -313,7 +365,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                     ),
                   ),
                 ],
-                if (isCorrect) ...[
+                if (isCorrect && primeiraVez) ...[
                   const SizedBox(height: 18),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -349,6 +401,30 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                     ),
                   ),
                 ],
+                if (!primeiraVez) ...[
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Este caso já tinha sido jogado: não conta para a escala.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: kTextMuted,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+                if (!temMaisCasos) ...[
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Concluíste todos os casos deste curso!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: kProfiteclaDarkBlue,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 22),
                 if (temMaisCasos) ...[
                   SizedBox(
@@ -356,10 +432,9 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                     child: ElevatedButton.icon(
                       onPressed: () {
                         Navigator.pop(sheetContext);
-                        final nextIndex = (_casoIndex + 1) % _casosDoCurso.length;
-                        _prepararCaso(nextIndex);
+                        _sortearProximoCaso();
                       },
-                      icon: const Icon(Icons.skip_next_rounded, size: 20),
+                      icon: const Icon(Icons.shuffle_rounded, size: 20),
                       label: const Text(
                         'OUTRA SITUAÇÃO DESTE CURSO',
                         style: TextStyle(
@@ -482,8 +557,10 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
   }
 
   Widget _buildHeader() {
-    final bool podeTrocarCaso =
-        !_isLoading && !_hasAnswered && _casosDoCurso.length > 1;
+    final bool podeTrocarCaso = !_isLoading &&
+        !_hasAnswered &&
+        !_todosConcluidos &&
+        _indicesDisponiveis(excluirAtual: true).isNotEmpty;
     final String badgeText = _cursoNome.isNotEmpty
         ? _cursoNome.toUpperCase()
         : widget.qrData.trim().replaceAll('_', ' ').toUpperCase();
@@ -554,7 +631,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
               ? InkWell(
                   onTap: () {
                     HapticFeedback.selectionClick();
-                    _prepararCaso((_casoIndex + 1) % _casosDoCurso.length);
+                    _sortearProximoCaso();
                   },
                   borderRadius: BorderRadius.circular(50),
                   child: Container(
@@ -601,6 +678,13 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
       );
     }
 
+    if (_todosConcluidos) {
+      return KeyedSubtree(
+        key: const ValueKey('concluido'),
+        child: _buildConcluido(),
+      );
+    }
+
     if (_errorMessage.isNotEmpty || _casoAtual == null) {
       return KeyedSubtree(
         key: const ValueKey('erro'),
@@ -611,7 +695,6 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
     final String titulo = (_casoAtual!['titulo'] ?? 'Situação Clínica').toString();
     final String cenario = (_casoAtual!['cenario'] ?? '').toString();
     final String pergunta = (_casoAtual!['pergunta'] ?? '').toString();
-    final String idCaso = (_casoAtual!['id'] ?? '').toString();
 
     return KeyedSubtree(
       key: ValueKey('caso_${_audienceId}_$_casoIndex'),
@@ -663,7 +746,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'CASO ${_casoIndex + 1} DE ${_casosDoCurso.length}${idCaso.isNotEmpty ? ' · ${idCaso.toUpperCase()}' : ''}',
+                                  'CASO ${_casoIndex + 1} DE ${_casosDoCurso.length}',
                                   style: const TextStyle(
                                     color: kTextMuted,
                                     fontSize: 10.5,
@@ -836,7 +919,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
                 )
               : const Icon(Icons.check_rounded, size: 20),
           label: Text(
-            _isSavingPoints ? 'A GUARDAR MG...' : 'CONFIRMAR RESPOSTA',
+            _isSavingPoints ? 'A GUARDAR...' : 'CONFIRMAR RESPOSTA',
             style: const TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w900,
@@ -853,6 +936,67 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
             elevation: 6,
             shadowColor: kProfiteclaBlue.withValues(alpha: 0.35),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConcluido() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: kOk.withValues(alpha: 0.1),
+                border: Border.all(color: kOk.withValues(alpha: 0.35), width: 1.5),
+              ),
+              child: const Icon(Icons.emoji_events_rounded, color: kOk, size: 38),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'CURSO CONCLUÍDO',
+              style: TextStyle(
+                color: kOk,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.0,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Já jogaste todas as situações${_cursoNome.isNotEmpty ? ' de $_cursoNome' : ''}. '
+              'Cada caso só pode ser jogado uma vez. Lê o QR code de outro curso para continuar.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: kTextDark,
+                fontSize: 14.5,
+                height: 1.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 22),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+              label: const Text(
+                'VOLTAR À LEITURA DE QR',
+                style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.8),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kProfiteclaBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
