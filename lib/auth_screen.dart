@@ -138,10 +138,8 @@ class _AuthScreenState extends State<AuthScreen> {
 
         // Documento único do utilizador na pauta: user_<numero sem o "0">
         String preloadedDocId = 'user_$numeroStr';
-        DocumentReference> preloadedRef =
-            users.doc(preloadedDocId);
-        DocumentSnapshot> preloadedSnap =
-            await preloadedRef.get();
+        var preloadedRef = users.doc(preloadedDocId);
+        var preloadedSnap = await preloadedRef.get();
 
         // Compatibilidade com registos antigos criados com o "0" no ID
         if (!preloadedSnap.exists) {
