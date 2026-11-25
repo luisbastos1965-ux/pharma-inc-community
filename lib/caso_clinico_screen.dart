@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'audio_manager.dart';
 import 'progress_manager.dart';
 
 class CasoClinicoScreen extends StatefulWidget {
@@ -55,6 +57,10 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
 
   final math.Random _rng = math.Random();
 
+  // Player dedicado aos efeitos sonoros (independente do AudioManager / BGM).
+  final AudioPlayer _sfxPlayer = AudioPlayer();
+  bool _sfxDisposed = false;
+
   int? _audienceId;
   String _cursoNome = '';
   List<Map<String, dynamic>> _casosDoCurso = [];
@@ -73,7 +79,46 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(AudioManager().playCrossfade(AudioManager.clinicalCaseBgm));
+    unawaited(_configurarSfx());
     _carregarCurso();
+  }
+
+  @override
+  void dispose() {
+    unawaited(AudioManager().playCrossfade(AudioManager.generalBgm));
+    _sfxDisposed = true;
+    unawaited(_libertarSfx());
+    super.dispose();
+  }
+
+  /// Configura o player de efeitos para misturar com a música de fundo
+  /// (sem pedir foco de áudio), de modo a não a interromper.
+  Future<void> _configurarSfx() async {
+    try {
+      await _sfxPlayer.setReleaseMode(ReleaseMode.stop);
+      await _sfxPlayer.setAudioContext(
+        AudioContextConfig(focus: AudioContextConfigFocus.mixWithOthers).build(),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _libertarSfx() async {
+    try {
+      await _sfxPlayer.dispose();
+    } catch (_) {}
+  }
+
+  /// Toca um efeito sonoro curto de assets/sounds/. Não toca se estiver em mute.
+  void _playSfx(String ficheiro) {
+    if (_sfxDisposed || AudioManager().isMuted) return;
+    unawaited(() async {
+      try {
+        await _sfxPlayer.stop();
+        if (_sfxDisposed) return;
+        await _sfxPlayer.play(AssetSource('sounds/$ficheiro'));
+      } catch (_) {}
+    }());
   }
 
   int? _parseAudienceFromQr(String raw) {
@@ -329,6 +374,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
   void _select(int index) {
     if (_hasAnswered || _isSavingPoints) return;
     HapticFeedback.selectionClick();
+    _playSfx('click.mp3');
     setState(() => _selectedOptionIndex = index);
   }
 
@@ -372,6 +418,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
     }
 
     setState(() => _isSavingPoints = false);
+    _playSfx(isCorrect ? 'correct.mp3' : 'wrong.mp3');
     _showResultBottomSheet(
       isCorrect,
       primeiraVez: registo == RegistoCaso.primeiraVez,
