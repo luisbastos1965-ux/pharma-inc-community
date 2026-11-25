@@ -4,12 +4,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math' as math;
 import 'progress_manager.dart';
 
-// Cores Oficiais Light Mode
 const Color kProfiteclaBlue = Color(0xFF008AD8);
 const Color kTextDark = Color(0xFF333333);
 const Color kTextMuted = Color(0xFF757575);
 
-/// Mapa central dos públicos/cursos (o número é o que fica guardado na base de dados).
 const Map<int, String> kAudienceNames = {
   1: 'Gestão e Administração',
   2: 'Desenvolvimento de Software',
@@ -24,7 +22,6 @@ const Map<int, String> kAudienceNames = {
   11: 'Professores',
 };
 
-/// Converte o valor de `audience` (int ou String) no nome do curso.
 String audienceLabel(dynamic raw) {
   final id = raw is int ? raw : int.tryParse(raw?.toString() ?? '');
   return kAudienceNames[id] ?? 'Sem Curso';
@@ -40,6 +37,7 @@ class EscalaScreen extends StatefulWidget {
 class _EscalaScreenState extends State<EscalaScreen>
     with SingleTickerProviderStateMixin {
   String _selectedCategory = 'Global';
+  String? _currentPautaId;
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
 
@@ -48,6 +46,7 @@ class _EscalaScreenState extends State<EscalaScreen>
   @override
   void initState() {
     super.initState();
+    _currentPautaId = ProgressManager().pautaDocId;
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -56,6 +55,15 @@ class _EscalaScreenState extends State<EscalaScreen>
       CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
     );
     _animController.forward();
+    _resolverPauta();
+  }
+
+  Future<void> _resolverPauta() async {
+    await ProgressManager().loadUserData();
+    if (!mounted) return;
+    setState(() {
+      _currentPautaId = ProgressManager().pautaDocId;
+    });
   }
 
   @override
@@ -128,7 +136,7 @@ class _EscalaScreenState extends State<EscalaScreen>
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Fechar filtro',
-      barrierColor: Colors.black.withValues(alpha: 0.3), // Fundo escurecido mais leve no light mode
+      barrierColor: Colors.black.withValues(alpha: 0.3),
       transitionDuration: const Duration(milliseconds: 450),
       pageBuilder: (dialogContext, animation, secondaryAnimation) {
         return Material(
@@ -140,7 +148,6 @@ class _EscalaScreenState extends State<EscalaScreen>
                 final String category = _categories[i];
                 final bool isSelected = _selectedCategory == category;
 
-                // O Interval exige end <= 1.0, por isso o atraso é distribuído pelas categorias
                 final double start = i * (0.5 / _categories.length);
                 final double t = Interval(start, start + 0.5, curve: Curves.easeOutBack)
                     .transform(animation.value);
@@ -269,8 +276,8 @@ class _EscalaScreenState extends State<EscalaScreen>
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-    final int userXP = ProgressManager().currentXP;
+    final String? activePautaId = _currentPautaId ?? ProgressManager().pautaDocId;
+    final int fallbackXP = ProgressManager().currentXP;
     const String userRole = 'Sem Curso';
 
     return Scaffold(
@@ -287,7 +294,6 @@ class _EscalaScreenState extends State<EscalaScreen>
             left: -70,
             child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.08), 260),
           ),
-
           SafeArea(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -319,7 +325,6 @@ class _EscalaScreenState extends State<EscalaScreen>
                     ],
                   ),
                 ),
-
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0),
                   child: Row(
@@ -342,7 +347,6 @@ class _EscalaScreenState extends State<EscalaScreen>
                     ],
                   ),
                 ),
-
                 if (_selectedCategory != 'Global')
                   Padding(
                     padding: const EdgeInsets.only(left: 24.0, top: 12.0, bottom: 4.0),
@@ -364,7 +368,6 @@ class _EscalaScreenState extends State<EscalaScreen>
                   )
                 else
                   const SizedBox(height: 16),
-
                 Expanded(
                   child: StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
@@ -390,22 +393,26 @@ class _EscalaScreenState extends State<EscalaScreen>
 
                       if (snapshot.hasData) {
                         for (var doc in snapshot.data!.docs) {
+                          final String docId = doc.id;
+                          // Apenas pautas (user_<número>) entram no ranking; ignora sessões UID
+                          if (!docId.startsWith('user_')) continue;
+
                           Map<String, dynamic> data = {};
                           try {
                             data = doc.data() as Map<String, dynamic>;
                           } catch (_) {}
 
-                          String docId = doc.id;
-                          String name = data['name']?.toString() ?? 'Aluno/a';
+                          final bool isCurrentUser = activePautaId != null && docId == activePautaId;
+                          final String name = data['name']?.toString() ?? 'Aluno/a';
 
                           int xp = 0;
                           var rawXp = data['xp'];
                           if (rawXp is int) {
                             xp = rawXp;
                           } else if (rawXp != null) {
-                            xp = int.tryParse(rawXp.toString()) ?? (docId == currentUserId ? userXP : 0);
-                          } else if (docId == currentUserId) {
-                            xp = userXP;
+                            xp = int.tryParse(rawXp.toString()) ?? (isCurrentUser ? fallbackXP : 0);
+                          } else if (isCurrentUser) {
+                            xp = fallbackXP;
                           }
 
                           String role = data['audience'] != null
@@ -414,32 +421,14 @@ class _EscalaScreenState extends State<EscalaScreen>
 
                           list.add({
                             'uid': docId,
-                            'name': docId == currentUserId ? '$name (Tu)' : name,
+                            'name': isCurrentUser ? '$name (Tu)' : name,
                             'xp': xp,
                             'role': role,
-                            'isUser': docId == currentUserId,
+                            'isUser': isCurrentUser,
                             'capsuleTop': data['capsuleTop'],
                             'capsuleBottom': data['capsuleBottom'],
                           });
                         }
-                      }
-
-                      bool hasUser = false;
-                      for (int i = 0; i < list.length; i++) {
-                        if (list[i]['isUser'] == true) {
-                          hasUser = true;
-                          break;
-                        }
-                      }
-
-                      if (!hasUser) {
-                        list.add({
-                          'uid': currentUserId ?? 'local_user',
-                          'name': 'Aluno/a (Tu)',
-                          'xp': userXP,
-                          'role': userRole,
-                          'isUser': true,
-                        });
                       }
 
                       list.sort((a, b) {
@@ -536,9 +525,11 @@ class _EscalaScreenState extends State<EscalaScreen>
                             .snapshots(),
                         builder: (context, snapshot) {
                           int userRank = 99;
-                          if (snapshot.hasData) {
+                          if (snapshot.hasData && activePautaId != null) {
                             List<Map<String, dynamic>> checkList = [];
                             for (var doc in snapshot.data!.docs) {
+                              if (!doc.id.startsWith('user_')) continue;
+
                               Map<String, dynamic> data = {};
                               try {
                                 data = doc.data() as Map<String, dynamic>;
@@ -555,7 +546,7 @@ class _EscalaScreenState extends State<EscalaScreen>
                               checkList.add({
                                 'uid': doc.id,
                                 'xp': xp,
-                                'isUser': doc.id == currentUserId,
+                                'isUser': doc.id == activePautaId,
                               });
                             }
 
@@ -574,15 +565,16 @@ class _EscalaScreenState extends State<EscalaScreen>
                           }
 
                           return StreamBuilder<DocumentSnapshot>(
-                            stream: currentUserId != null
+                            stream: activePautaId != null
                                 ? FirebaseFirestore.instance
                                     .collection('users')
-                                    .doc(currentUserId)
+                                    .doc(activePautaId)
                                     .snapshots()
                                 : null,
                             builder: (context, userDocSnapshot) {
-                              String dynamicName = 'Aluno/a';
+                              String dynamicName = FirebaseAuth.instance.currentUser?.displayName ?? 'Aluno/a';
                               String dynamicRole = userRole;
+                              int dynamicXP = fallbackXP;
                               Map<String, dynamic>? userData;
 
                               if (userDocSnapshot.hasData &&
@@ -594,7 +586,9 @@ class _EscalaScreenState extends State<EscalaScreen>
                                   if (userData['name'] != null) {
                                     dynamicName = userData['name'].toString();
                                   }
-                                  
+                                  if (userData['xp'] is num) {
+                                    dynamicXP = (userData['xp'] as num).toInt();
+                                  }
                                   if (userData['audience'] != null) {
                                     dynamicRole = audienceLabel(userData['audience']);
                                   } else if (userData['role'] != null) {
@@ -606,7 +600,7 @@ class _EscalaScreenState extends State<EscalaScreen>
                               return _buildRankCard(
                                 rank: userRank,
                                 name: '$dynamicName (Tu)',
-                                xp: userXP,
+                                xp: dynamicXP,
                                 role: dynamicRole,
                                 isUser: true,
                                 capsuleTop: userData?['capsuleTop'] as int?,
@@ -661,15 +655,13 @@ class _EscalaScreenState extends State<EscalaScreen>
     int? capsuleBottom,
   }) {
     Color getRankColor(int r) {
-      if (r == 1) return const Color(0xFFFFD700); // Ouro
-      if (r == 2) return const Color(0xFF9E9E9E); // Prata (escurecido para destacar no branco)
-      if (r == 3) return const Color(0xFFCD7F32); // Bronze
-      return kProfiteclaBlue; // Restantes a azul em vez de cyan
+      if (r == 1) return const Color(0xFFFFD700);
+      if (r == 2) return const Color(0xFF9E9E9E);
+      if (r == 3) return const Color(0xFFCD7F32);
+      return kProfiteclaBlue;
     }
 
     final Color rankColor = getRankColor(rank);
-    
-    // Cores da cápsula (Agora o padrão é o Azul Profitecla para combinar com a nova identidade)
     final Color topColor = capsuleTop != null ? Color(capsuleTop) : kProfiteclaBlue;
     final Color bottomColor = capsuleBottom != null ? Color(capsuleBottom) : const Color(0xFF005C9E);
 
@@ -698,7 +690,6 @@ class _EscalaScreenState extends State<EscalaScreen>
       ),
       child: Row(
         children: [
-          // DESIGN DA CÁPSULA COM O NÚMERO DO RANK
           Container(
             width: 42,
             height: 56,

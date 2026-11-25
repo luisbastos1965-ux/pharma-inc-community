@@ -26,21 +26,15 @@ class _AuthScreenState extends State<AuthScreen> {
   static const int _minDigitosDocente = 2;
   static const int _maxDigitosDocente = 4;
 
-  // Cores da Simbiose (Profitecla + Saúde)
   final Color _azulProfitecla = const Color(0xFF008AD8);
   final Color _azulClinico = const Color(0xFFE1F0FA);
   final Color _cinzaTexto = const Color(0xFF333333);
 
-  // Padrão fixo para simular as barras de um código de barras real
   final List<double> _barcodePattern = [
     2, 4, 1, 3, 2, 1, 4, 2, 1, 3, 4, 1, 2, 2, 3, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3,
     1, 4, 2, 2, 1, 4, 3, 1, 2, 4, 2, 2, 1, 3, 1, 4, 2, 1, 3, 4, 2, 1, 2, 3, 1,
     4, 2, 1, 3,
   ];
-
-  // ---------------------------------------------------------------------------
-  // Regras do número de identificação
-  // ---------------------------------------------------------------------------
 
   bool get _isAluno => _numeroAtual.length == _digitosAluno;
 
@@ -48,12 +42,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _numeroAtual.length >= _minDigitosDocente &&
       _numeroAtual.length <= _maxDigitosDocente;
 
-  /// Número completo, tal como consta no cartão (com o "0" inicial). Só para apresentação.
   String get _numeroCompleto => '0$_numeroAtual';
-
-  // ---------------------------------------------------------------------------
-  // Teclado
-  // ---------------------------------------------------------------------------
 
   void _onDigitTap(String digit) {
     if (_isLoading) return;
@@ -114,15 +103,9 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Login
-  // ---------------------------------------------------------------------------
-
   Future<void> _processLogin() async {
     if (_isLoading) return;
 
-    // numeroStr = número SEM o "0" inicial. É o que está guardado na base de dados
-    // (studentId e sufixo do documento "user_<numeroStr>").
     final String numeroStr = _numeroAtual.trim();
 
     if (numeroStr.isEmpty) {
@@ -153,15 +136,14 @@ class _AuthScreenState extends State<AuthScreen> {
         final firestore = FirebaseFirestore.instance;
         final users = firestore.collection('users');
 
-        // Documento pré-carregado (pauta): user_<numero sem o "0">
+        // Documento único do utilizador na pauta: user_<numero sem o "0">
         String preloadedDocId = 'user_$numeroStr';
-        DocumentReference<Map<String, dynamic>> preloadedRef =
+        DocumentReference> preloadedRef =
             users.doc(preloadedDocId);
-        DocumentSnapshot<Map<String, dynamic>> preloadedSnap =
+        DocumentSnapshot> preloadedSnap =
             await preloadedRef.get();
 
-        // Compatibilidade: registos antigos criados com o "0" no ID (user_0<numero>).
-        // Evita duplicar o mesmo utilizador com e sem "0".
+        // Compatibilidade com registos antigos criados com o "0" no ID
         if (!preloadedSnap.exists) {
           final legacyId = 'user_0$numeroStr';
           final legacyRef = users.doc(legacyId);
@@ -173,49 +155,15 @@ class _AuthScreenState extends State<AuthScreen> {
           }
         }
 
-        final sessionRef = users.doc(user.uid);
-        final sessionSnap = await sessionRef.get();
-        final sessionData = sessionSnap.data();
-
-        // A sessão já está ligada a este mesmo número? (mesmo dispositivo/conta anónima)
-        final bool jaLigado = sessionSnap.exists &&
-            sessionData != null &&
-            sessionData['linkedDocId'] == preloadedDocId;
-
-        String displayName;
-
         if (preloadedSnap.exists) {
           final data = preloadedSnap.data()!;
-          displayName = (data['name'] ?? 'Utente $numeroCompleto').toString();
-
-          if (jaLigado) {
-            // Mantém o progresso da sessão (xp, casosJogados, audience, ...).
-            // Só atualiza identidade e último acesso, para não repor o xp a 0.
-            await sessionRef.set({
-              'name': data['name'] ?? sessionData['name'] ?? displayName,
-              if (data['fullName'] != null) 'fullName': data['fullName'],
-              if (data['course'] != null) 'course': data['course'],
-              if (data['class'] != null) 'class': data['class'],
-              'studentId': numeroStr,
-              'linkedDocId': preloadedDocId,
-              'lastLogin': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true));
-          } else {
-            // Sessão nova ou que estava ligada a outro número: substitui o documento
-            // por completo (sem merge) para não misturar progresso de contas diferentes.
-            await sessionRef.set({
-              ...data,
-              'studentId': numeroStr,
-              'linkedDocId': preloadedDocId,
-              'lastLogin': FieldValue.serverTimestamp(),
-            });
-          }
-
+          final displayName =
+              (data['name'] ?? 'Utente $numeroCompleto').toString();
           await user.updateDisplayName(displayName);
         } else if (isProfessor) {
-          // Docente ainda não registado: cria o registo (ID sem o "0", como os alunos).
           final profName = 'Prof. $numeroCompleto';
-          final profData = <String, dynamic>{
+
+          await preloadedRef.set({
             'name': profName,
             'fullName': profName,
             'studentId': numeroStr,
@@ -223,29 +171,13 @@ class _AuthScreenState extends State<AuthScreen> {
             'class': 'Docentes',
             'audience': 11,
             'xp': 0,
+            'casosJogados': <String>[],
             'level': 1,
             'careerTitle': 'Docente Profitecla',
             'capsuleTop': 4278225624,
             'capsuleBottom': 4278213790,
             'createdAt': FieldValue.serverTimestamp(),
-          };
-
-          await preloadedRef.set(profData);
-
-          if (jaLigado) {
-            await sessionRef.set({
-              ...profData,
-              'xp': sessionData['xp'] ?? 0,
-              'linkedDocId': preloadedDocId,
-              'lastLogin': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true));
-          } else {
-            await sessionRef.set({
-              ...profData,
-              'linkedDocId': preloadedDocId,
-              'lastLogin': FieldValue.serverTimestamp(),
-            });
-          }
+          });
 
           await user.updateDisplayName(profName);
         } else {
@@ -256,7 +188,7 @@ class _AuthScreenState extends State<AuthScreen> {
           return;
         }
 
-        await ProgressManager().loadUserData();
+        await ProgressManager().loadUserData(pautaId: preloadedDocId);
         _navigateToMenu();
       }
     } catch (e) {
@@ -288,54 +220,52 @@ class _AuthScreenState extends State<AuthScreen> {
     return null;
   }
 
-  /// Visor: "0" fixo à esquerda + dígitos introduzidos (ou texto de ajuda se vazio).
   Widget _buildVisorTexto() {
-  final bool vazio = _numeroAtual.isEmpty;
+    final bool vazio = _numeroAtual.isEmpty;
 
-  return FittedBox(
-    fit: BoxFit.scaleDown,
-    alignment: Alignment.centerLeft,
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // "0" permanente
-        Text(
-          '0',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: 20,
-            height: 1.0,
-            letterSpacing: 2.0,
-            color: _azulProfitecla,
-          ),
-        ),
-        const SizedBox(width: 8),
-        if (vazio)
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
           Text(
-            'N.º da Escola',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-              height: 1.0,
-              color: Colors.grey.shade500,
-            ),
-          )
-        else
-          Text(
-            _numeroAtual.split('').join(' '),
+            '0',
             style: TextStyle(
               fontWeight: FontWeight.w900,
               fontSize: 20,
               height: 1.0,
               letterSpacing: 2.0,
-              color: _cinzaTexto,
+              color: _azulProfitecla,
             ),
           ),
-      ],
-    ),
-  );
-}
+          const SizedBox(width: 8),
+          if (vazio)
+            Text(
+              'N.º da Escola',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                height: 1.0,
+                color: Colors.grey.shade500,
+              ),
+            )
+          else
+            Text(
+              _numeroAtual.split('').join(' '),
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 20,
+                height: 1.0,
+                letterSpacing: 2.0,
+                color: _cinzaTexto,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -380,7 +310,6 @@ class _AuthScreenState extends State<AuthScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // LOGO REDONDO COMPACTO
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
@@ -399,10 +328,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           height: 76,
                         ),
                       ),
-
                       const SizedBox(height: 24),
-
-                      // CARTÃO DE SAÚDE ESCOLAR
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.white,
@@ -418,7 +344,6 @@ class _AuthScreenState extends State<AuthScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // HEADER DO CARTÃO
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 vertical: 14,
@@ -451,13 +376,11 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ],
                               ),
                             ),
-
                             Padding(
                               padding: const EdgeInsets.fromLTRB(24, 24, 24, 22),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  // VISOR DIGITAL (CÁPSULA DE LEITURA)
                                   Container(
                                     height: 58,
                                     padding: const EdgeInsets.symmetric(
@@ -512,15 +435,9 @@ class _AuthScreenState extends State<AuthScreen> {
                                       ],
                                     ),
                                   ),
-
                                   const SizedBox(height: 18),
-
-                                  // BLISTER NUMÉRICO (NUMPAD DISRUPTIVO)
                                   _buildBlisterNumpad(),
-
                                   const SizedBox(height: 20),
-
-                                  // BOTÃO TIPO CÁPSULA
                                   if (_isLoading)
                                     const SizedBox(
                                       height: 50,
@@ -564,10 +481,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                         ),
                                       ),
                                     ),
-
                                   const SizedBox(height: 22),
-
-                                  // CÓDIGO DE BARRAS REATIVO E CENTRADO
                                   Center(
                                     child: FittedBox(
                                       fit: BoxFit.scaleDown,
@@ -606,9 +520,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           ],
                         ),
                       ),
-
                       const SizedBox(height: 22),
-
                       const Text(
                         'Pharma Inc. Community ©',
                         style: TextStyle(

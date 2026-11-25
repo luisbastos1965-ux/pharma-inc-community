@@ -21,12 +21,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   String _playerLicenseId = 'PI-0000';
   bool _isLoadingName = true;
 
-  // Cores Oficiais Light Mode
   static const Color kProfiteclaBlue = Color(0xFF008AD8);
   static const Color kTextDark = Color(0xFF333333);
   static const Color kTextMuted = Color(0xFF757575);
 
-  // Cores da cápsula (agora com o Azul Profitecla como base)
   static const Color _defaultCapsuleTop = kProfiteclaBlue;
   static const Color _defaultCapsuleBottom = Color(0xFF005C9E);
   Color _capsuleTop = _defaultCapsuleTop;
@@ -74,13 +72,23 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     return (match?.group(0) ?? firstWord[0]).toUpperCase();
   }
 
+  Future<String?> _targetDocId() async {
+    await ProgressManager().loadUserData();
+    final pautaId = ProgressManager().pautaDocId;
+    if (pautaId != null && pautaId.isNotEmpty) return pautaId;
+    return FirebaseAuth.instance.currentUser?.uid;
+  }
+
   Future<void> _fetchUserDataFromFirestore() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        final shortUid = user.uid.length >= 6 ? user.uid.substring(0, 6).toUpperCase() : '8492PI';
+      final targetId = await _targetDocId();
+      if (user != null && targetId != null) {
+        final rawCode = targetId.startsWith('user_')
+            ? targetId.substring('user_'.length)
+            : (user.uid.length >= 6 ? user.uid.substring(0, 6).toUpperCase() : '8492PI');
 
-        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        final doc = await FirebaseFirestore.instance.collection('users').doc(targetId).get();
         if (doc.exists && doc.data() != null) {
           if (!mounted) return;
           final data = doc.data()!;
@@ -91,7 +99,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           }
           setState(() {
             _firestoreUserName = loadedName;
-            _playerLicenseId = 'REG. Nº #$shortUid';
+            _playerLicenseId = 'REG. Nº #$rawCode';
             _capsuleTop = _colorFromData(data['capsuleTop']) ?? _defaultCapsuleTop;
             _capsuleBottom = _colorFromData(data['capsuleBottom']) ?? _defaultCapsuleBottom;
             _isLoadingName = false;
@@ -125,9 +133,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       _capsuleBottom = bottom;
     });
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      final targetId = await _targetDocId();
+      if (targetId == null || targetId.isEmpty) return;
+      await FirebaseFirestore.instance.collection('users').doc(targetId).set({
         'capsuleTop': top.toARGB32(),
         'capsuleBottom': bottom.toARGB32(),
       }, SetOptions(merge: true));
@@ -203,11 +211,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         children: [
           Positioned(top: -50, right: -50, child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.05), 200)),
           Positioned(bottom: 100, left: -80, child: _buildMolecule(kProfiteclaBlue.withValues(alpha: 0.08), 250)),
-
           SafeArea(
             child: Column(
               children: [
-                // CABEÇALHO (Botão Voltar e Botão Sair)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                   child: Row(
@@ -228,8 +234,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     ],
                   ),
                 ),
-
-                // CONTEÚDO CENTRADO VERTICALMENTE
                 Expanded(
                   child: Center(
                     child: SingleChildScrollView(
@@ -245,7 +249,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  // AVATAR CÁPSULA
                                   GestureDetector(
                                     onTap: _isLoadingName ? null : () => _showCapsuleEditor(_firestoreUserName),
                                     child: Stack(
@@ -278,19 +281,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                       ],
                                     ),
                                   ),
-
                                   const SizedBox(height: 32),
-
-                                  // NOME
                                   Text(
                                     displayName,
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: kTextDark, letterSpacing: -0.5),
                                   ),
-
                                   const SizedBox(height: 12),
-
-                                  // NÚMERO DE CÉDULA OFICIAL
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
@@ -307,10 +304,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                       ),
                                     ],
                                   ),
-
                                   const SizedBox(height: 36),
-
-                                  // TAG EXCLUSIVA DO CURSO COM ÍCONE DINÂMICO
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                                     decoration: BoxDecoration(
@@ -331,7 +325,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                       ],
                                     ),
                                   ),
-
                                   const SizedBox(height: 20),
                                 ],
                               ),
@@ -366,10 +359,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            top,
-            bottom,
-          ],
+          colors: [top, bottom],
           stops: const [0.5, 0.5],
         ),
         boxShadow: [
@@ -578,7 +568,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         ),
         child: Center(
           child: Container(
-            width: size / 2, height: size / 2,
+            width: size / 2,
+            height: size / 2,
             decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: color, width: 4)),
           ),
         ),

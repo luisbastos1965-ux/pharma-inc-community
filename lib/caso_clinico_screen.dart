@@ -16,8 +16,7 @@ class CasoClinicoScreen extends StatefulWidget {
 }
 
 class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
-  // Identidade visual oficial Light Mode
-  static const Color kProfiteclaBlue = Color(0xFF008AD8); // cor por omissão
+  static const Color kProfiteclaBlue = Color(0xFF008AD8);
   static const Color kTextDark = Color(0xFF333333);
   static const Color kTextMuted = Color(0xFF757575);
   static const Color kOk = Color(0xFF00A86B);
@@ -37,23 +36,22 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
     11: 'Professores',
   };
 
-  // Cor de cada curso (usada no padrão de fundo do ecrã de resolução)
   static const Map<int, Color> _coresCursos = {
-    1: Color(0xFF1A365D), // Gestão e Administração
-    2: Color(0xFF1E5631), // Desenvolvimento de Software
-    3: Color(0xFFC84B31), // Comunicação e Marketing
-    4: Color(0xFF4A235A), // Multimédia
-    5: Color(0xFF800000), // Cozinha e Restauração
-    6: Color(0xFF005B96), // Turismo
-    7: Color(0xFF00695C), // Auxiliar de Saúde
-    8: Color(0xFF513E7C), // Auxiliar de Farmácia
-    9: Color(0xFF2C3E50), // Secretariado Executivo
-    10: Color(0xFF880E4F), // Comunicação e Serviço Digital
-    11: Color(0xFF4E342E), // Professores
+    1: Color(0xFF1A365D),
+    2: Color(0xFF1E5631),
+    3: Color(0xFFC84B31),
+    4: Color(0xFF4A235A),
+    5: Color(0xFF800000),
+    6: Color(0xFF005B96),
+    7: Color(0xFF00695C),
+    8: Color(0xFF513E7C),
+    9: Color(0xFF2C3E50),
+    10: Color(0xFF880E4F),
+    11: Color(0xFF4E342E),
   };
 
-  // Cache em memória por curso (1..11) para evitar leituras repetidas no Firestore
   static final Map<int, Map<String, dynamic>> _courseCache = {};
+  static Map<String, int>? _configMgCache;
 
   final math.Random _rng = math.Random();
 
@@ -78,7 +76,6 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
     _carregarCurso();
   }
 
-  /// Extrai o número do curso (1..11) a partir de formatos como "CURSO_1", "curso_1" ou "1".
   int? _parseAudienceFromQr(String raw) {
     final cleaned = raw.trim().toUpperCase();
     final match = RegExp(r'(?:CURSO[_\-\s]*)?(\d{1,2})$').firstMatch(cleaned);
@@ -86,6 +83,40 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
     final num = int.tryParse(match.group(1)!);
     if (num == null || num < 1 || num > 11) return null;
     return num;
+  }
+
+  int _parseMg(dynamic raw) {
+    if (raw is int) return math.max(0, raw);
+    if (raw is num) return math.max(0, raw.truncate());
+    final s = (raw ?? '').toString().trim();
+    if (RegExp(r'^-?\d+$').hasMatch(s)) {
+      return math.max(0, int.tryParse(s) ?? 100);
+    }
+    return 100;
+  }
+
+  Future<Map<String, int>> _obterMapaConfigMg({bool forceRefresh = false}) async {
+    if (!forceRefresh && _configMgCache != null) {
+      return _configMgCache!;
+    }
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('config')
+          .doc('casos')
+          .get();
+      final rawMg = snap.data()?['mg'];
+      if (rawMg is Map) {
+        final parsed = <String, int>{};
+        for (final entry in rawMg.entries) {
+          if (entry.value is num) {
+            parsed[entry.key.toString()] = math.max(0, (entry.value as num).toInt());
+          }
+        }
+        _configMgCache = parsed;
+        return parsed;
+      }
+    } catch (_) {}
+    return _configMgCache ?? const {};
   }
 
   Future<void> _carregarCurso({bool forceRefresh = false}) async {
@@ -110,6 +141,8 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
     }
 
     try {
+      await _obterMapaConfigMg(forceRefresh: forceRefresh);
+
       Map<String, dynamic>? courseData =
           forceRefresh ? null : _courseCache[parsedAudience];
 
@@ -156,7 +189,6 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
           .toString()
           .trim();
 
-      // Sincroniza os casos já jogados antes de sortear (um só jogo por caso).
       await ProgressManager().refreshCasosJogados();
       if (!mounted || token != _loadToken) return;
 
@@ -196,15 +228,12 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
     }
   }
 
-  /// ID estável do caso. Usa o campo "id" do JSON (ex.: caso_gea_001); se não
-  /// existir, recorre a curso + posição na lista (frágil se a ordem mudar).
   String _idDoCaso(Map<String, dynamic> caso, int index, int audience) {
     final String id = (caso['id'] ?? '').toString().trim();
     if (id.isNotEmpty) return id;
     return 'curso_${audience}_$index';
   }
 
-  /// Índices dos casos deste curso que o jogador ainda não jogou.
   List<int> _indicesDisponiveis({bool excluirAtual = false}) {
     final int aud = _audienceId ?? 0;
     return [
@@ -262,7 +291,6 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
       }
     }
 
-    // Baralha as opções para evitar que a resposta certa seja adivinhada por posição/extensão
     opcoesList.shuffle(_rng);
 
     setState(() {
@@ -273,12 +301,10 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
     });
   }
 
-  /// Cor do curso atual (ou azul Profitecla se o QR ainda não foi interpretado).
   Color get _corCurso =>
       _coresCursos[_audienceId ?? _parseAudienceFromQr(widget.qrData)] ??
       kProfiteclaBlue;
 
-  /// Variante mais escura da cor do curso (títulos de destaque).
   Color get _corCursoEscura =>
       Color.lerp(_corCurso, Colors.black, 0.25) ?? _corCurso;
 
@@ -287,10 +313,17 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
     return _casosDoCurso[_casoIndex];
   }
 
+  int _mgParaCasoId(String casoId) {
+    final fromConfig = _configMgCache?[casoId];
+    if (fromConfig != null) return fromConfig;
+    return _parseMg(_casoAtual?['mg_recompensa']);
+  }
+
   int get _mgRecompensa {
-    final dynamic raw = _casoAtual?['mg_recompensa'];
-    if (raw is num) return raw.toInt();
-    return int.tryParse(raw?.toString() ?? '') ?? 100;
+    final caso = _casoAtual;
+    if (caso == null) return 100;
+    final casoId = _idDoCaso(caso, _casoIndex, _audienceId ?? 0);
+    return _mgParaCasoId(casoId);
   }
 
   void _select(int index) {
@@ -307,16 +340,13 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
         _opcoesApresentadas[_selectedOptionIndex!]['correta'] == true;
     final String casoId =
         _idDoCaso(_casoAtual!, _casoIndex, _audienceId ?? 0);
-    final int mg = _mgRecompensa;
+    final int mg = _mgParaCasoId(casoId);
 
     setState(() {
       _hasAnswered = true;
       _isSavingPoints = true;
     });
 
-    // Regista o caso como jogado (certo ou errado) e credita os mg só à 1.ª vez
-    // e só se a resposta estiver certa. O resultado só é revelado depois de o
-    // servidor confirmar o registo.
     final RegistoCaso registo = await ProgressManager()
         .registarCasoJogado(casoId, xpGanho: isCorrect ? mg : 0);
 
@@ -704,13 +734,13 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
   Widget _buildBody() {
     if (_isLoading) {
       return Center(
-        key: ValueKey('loading'),
+        key: const ValueKey('loading'),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(color: _corCurso),
-            SizedBox(height: 16),
-            Text(
+            const SizedBox(height: 16),
+            const Text(
               'A carregar situações do curso...',
               style: TextStyle(
                 color: kTextMuted,
@@ -876,7 +906,7 @@ class _CasoClinicoScreenState extends State<CasoClinicoScreen> {
   Widget _buildOptionTile(int index) {
     final bool isSelected = _selectedOptionIndex == index;
     final String texto = (_opcoesApresentadas[index]['texto'] ?? '').toString();
-    final String rotulo = String.fromCharCode(65 + index); // A, B, C, D...
+    final String rotulo = String.fromCharCode(65 + index);
 
     return GestureDetector(
       onTap: () => _select(index),
