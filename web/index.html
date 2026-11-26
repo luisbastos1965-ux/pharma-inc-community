@@ -18,10 +18,12 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="description" content="Simulador Interativo e Gamificado de Contextos Clínicos">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <!-- Mudei para default para que o relógio/bateria do iPhone fiquem visíveis num fundo claro -->
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Pharma SOS">
@@ -45,6 +47,22 @@
       background-color: #FFFFFF !important;
     }
   </style>
+
+  <!--
+    Captura cedo o evento de instalação do Chrome/Edge (Android), porque
+    pode ser disparado antes de o Flutter arrancar. É lido pelo
+    pwa_platform_web.dart (window.__pwaDeferredPrompt / window.__pwaInstalled).
+  -->
+  <script>
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.__pwaDeferredPrompt = e;
+    });
+    window.addEventListener('appinstalled', function () {
+      window.__pwaDeferredPrompt = null;
+      window.__pwaInstalled = true;
+    });
+  </script>
 </head>
 <body>
   <!--

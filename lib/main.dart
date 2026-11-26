@@ -15,6 +15,7 @@ import 'gabinete_screen.dart';
 import 'escala_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'pratica_screen.dart';
+import 'pwa_install_gate.dart';
 
 // Altura partilhada entre a cápsula de modos e a barra de navegação
 const double kBarraAltura = 56;
@@ -111,7 +112,10 @@ class PharmaIncApp extends StatelessWidget {
           },
         ),
       ),
-      home: const SplashScreen(),
+      // O gate só deixa passar para a SplashScreen (e daí para Auth/Menu)
+      // quando a app está instalada (standalone). Num separador normal de
+      // telemóvel mostra o ecrã de instalação.
+      home: const PwaInstallGate(child: SplashScreen()),
     );
   }
 }

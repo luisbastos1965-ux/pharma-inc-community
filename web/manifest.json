@@ -1,11 +1,14 @@
 {
-    "name": "Pharma Inc",
-    "short_name": "Pharma Inc",
+    "id": "/",
+    "name": "Pharma SOS",
+    "short_name": "Pharma SOS",
     "start_url": ".",
+    "scope": ".",
     "display": "standalone",
     "background_color": "#FFFFFF",
     "theme_color": "#008ad8",
     "description": "App para PAP",
+    "lang": "pt-PT",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
