@@ -105,39 +105,6 @@ class _PwaInstallGateState extends State<PwaInstallGate> {
     });
   }
 
-  void _mostrarDiagnostico() {
-    final diag = pwaDiagnostics();
-    final linhas = <String>[
-      'alvo detetado: ${_alvoDetetado.name}',
-      'iOS Safari: $_iosSafari',
-      'Android Chrome: $_androidChrome',
-      'browser embutido: $_emAppEmbutida',
-      ...diag.entries.map((e) => '${e.key}: ${e.value}'),
-    ];
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text(
-          'Diagnóstico',
-          style: TextStyle(fontWeight: FontWeight.w800, color: _kTexto),
-        ),
-        content: SingleChildScrollView(
-          child: SelectableText(
-            linhas.join('\n'),
-            style: const TextStyle(fontSize: 12, color: _kTexto, height: 1.5),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Fechar', style: TextStyle(color: _kAzul)),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ---------------------------------------------------------------- BUILD
 
   @override
@@ -166,7 +133,7 @@ class _PwaInstallGateState extends State<PwaInstallGate> {
                 constraints: const BoxConstraints(maxWidth: 480),
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
                   child: Column(
                     children: [
                       Image.asset('assets/images/logo_splash.png', height: 110),
@@ -203,18 +170,6 @@ class _PwaInstallGateState extends State<PwaInstallGate> {
                         if (_alvo == _Alvo.android) _botaoInstalarAndroid(),
                         _passos(_passosPara(_alvo)),
                       ],
-                      const SizedBox(height: 20),
-                      TextButton(
-                        onPressed: _mostrarDiagnostico,
-                        child: Text(
-                          'Diagnóstico (professor)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: _kTextoSuave.withValues(alpha: 0.8),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
