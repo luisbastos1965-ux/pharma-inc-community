@@ -1,7 +1,7 @@
 {
     "id": "/",
-    "name": "Pharma SOS",
-    "short_name": "Pharma SOS",
+    "name": "Pharma Inc. Community",
+    "short_name": "Pharma Inc. Community",
     "start_url": ".",
     "scope": ".",
     "display": "standalone",
